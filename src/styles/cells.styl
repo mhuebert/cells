@@ -1,0 +1,49 @@
+@require "normalize.styl"
+@require "codemirror.css"
+@require "codemirror-solarized.css"
+
+.cells
+  display flex
+  flex-wrap wrap
+  font-family monospace
+  margin 15px
+
+.display-cell
+  width 200px
+  height 100px
+  margin 15px
+  display inline-block
+
+.display-cell-source, .display-cell-value
+  width 100%
+  height 100%
+  border 1px solid #eee
+  display flex
+  box-sizing border-box
+
+.display-cell-value
+  padding 5px 4px
+
+.CodeMirror
+  display flex
+  //flex-direction column
+  flex 1
+
+.CodeMirror-scroll
+  flex 1
+  height auto
+
+.display-cell
+  position relative
+.display-cell-meta
+  padding 3px 4px
+  // background #f7f7f7
+  position absolute
+  bottom 1px
+  right 1px
+  font-family "Helvetica Neue", Helvetica, sans-serif
+  font-size 12px
+.display-cell-meta-id
+  color #ccc
+.display-cell-meta-formula
+  color #ccc
