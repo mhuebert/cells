@@ -1,44 +1,70 @@
 (ns cells.core
   ^:figwheel-always
+  (:require-macros [cljs.core.async.macros :refer [go]])
   (:require
       [reagent.core :as r :refer [cursor]]
-      [cells.editors :refer [cm-editor]]))
+      [goog.net.XhrIo :as xhr]
+      [cells.editors :refer [cm-editor]]
+      [cljs.reader :refer [read-string]]
+      [cljs.core.async :refer [put! chan <! >!]])
+  )
 
 (enable-console-print!)
 
-(defonce cells (r/atom {1 {:source "cell 1"
+; had to implement OPTIONS method on /compile in himera
+; as described here:
+
+(defonce cells (r/atom {1 {:source "zebra"
                            :priority 1
                            :display (fn [value] #_...)}
-                        2 {:source "cell 2"}
-                        3 {:source "(1"}
-                        4 {:source "hey"}
+                        2 {:source "giraffe"}
+                        3 {:source "(+ (cell 1) \" \" (cell 2))"}
+                        4 {:source "go figure."}
                         }))
+
+(defn cell [id]
+  (let [cell-value (cursor cells [id :value])]
+    @cell-value))
+
+(defn wrap-source [source]
+  (str "(fn [cell] " source ")"))
+
+(def compile-url "http://himera-open.herokuapp.com/compile")
+(defn compile [source]
+  (let [c (chan)
+        source (wrap-source source)]
+
+    (xhr/send compile-url
+              #(put! c (-> % .-target .getResponseText read-string :js))
+              "POST"
+              (str "{:expr " source "}")
+              (clj->js {"Content-Type" "application/clojure"}))
+    c))
+
+
 
 (defn new-cell []
   (let [id (inc (count @cells))]
     (swap! cells assoc id {:source ""})))
 
-(defn get-cell [id]
-  (cursor cells [id]))
-
-(defn eval-function [source]
-  (let [referenced-id (int (nth source 1))
-        referenced-value (cursor cells [referenced-id :value] )
-        new-value (or @referenced-value "")]
-    new-value))
-
+(defn compile-function! [source id]
+  (go
+    (let [compiled-fn (js/eval (<! (compile source)))]
+      (swap! cells assoc-in [id :compiled] {:compiled-source source
+                                            :compiled-fn compiled-fn}))))
 
 (defn formula? [source]
   (= (first source) \())
 
 (defn eval-cell [id]
-  (let [source (:source @(get-cell id))
-        value (if (formula? source) (eval-function source) source)]
-    (prn "eval-cell" id)
+  (let [source @(r/cursor cells [id :source])
+        {:keys [compiled-source compiled-fn]} (or @(r/cursor cells [id :compiled]) {})
+        value (cond
+                (not (formula? source)) source
+                (and compiled-fn (= compiled-source source)) (compiled-fn cell)
+                :else (do (compile-function! source id) "..."))]
     (swap! cells assoc-in [id :value] value)
     value))
-
-
 
 (defn display-cell [id]
       (let [show-source? (r/atom false)
@@ -63,7 +89,6 @@
                 :padding "30px 40px"
                 :background "#efefef"
                 :display "inline-block"
-                :margin "0 30px"}} "+"]
-   ])
+                :margin "0 30px"}} "+"]])
 
 (r/render-component [app] (.getElementById js/document "app"))
