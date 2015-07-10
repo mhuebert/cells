@@ -9,8 +9,8 @@
   margin 15px
 
 .display-cell
-  width 200px
-  height 100px
+  width 250px
+  height 120px
   margin 15px
   display inline-block
 
@@ -35,15 +35,44 @@
 
 .display-cell
   position relative
+  cursor text
+  .display-cell-meta-id
+    display none
+  &:hover .display-cell-meta-id
+    display block
+
 .display-cell-meta
   padding 3px 4px
   // background #f7f7f7
   position absolute
   bottom 1px
-  right 1px
+  left 1px
   font-family "Helvetica Neue", Helvetica, sans-serif
   font-size 12px
+  z-index 1
+  width 100%
+  box-sizing border-box
+
 .display-cell-meta-id
   color #ccc
+  float left
+
 .display-cell-meta-formula
   color #ccc
+  float right
+  margin 0 2px
+
+.touch-btn
+  font-size: 40px
+  width 100px
+  height 100px
+  box-sizing border-box
+  line-height 95px
+  text-align center
+  background: #efefef
+  display: inline-block
+  margin: 0 30px
+  cursor: pointer
+  transition 0.1s all linear
+  &:hover
+     font-size 65px

@@ -17,19 +17,20 @@
   (.focus (get-editor id)))
 
 (def cm-defaults {
-                  :lineNumbers false
-                  :lineWrapping true
+                  :lineNumbers     false
+                  :lineWrapping    true
                   :styleActiveLine true
                   #_:scrollbarStyle #_"null"
-                  :theme "solarized dark"
-                  :mode "javascript"})
+                  :theme           "solarized dark"
+                  :extraKeys       (.-subparKeymap js/window)
+                  :matchBrackets   true
+                  :mode            "clojure"})
 
 (defn cm-editor
   ([a] (cm-editor a {}))
   ([a options]
    (r/create-class
-     {
-      :component-did-mount    #(let [node (.getDOMNode %)
+     {:component-did-mount    #(let [node (.getDOMNode %)
                                      config (clj->js (merge cm-defaults options))
                                      editor (.fromTextArea js/CodeMirror node config)
                                      val (or @a "")
@@ -45,11 +46,17 @@
                                                        (let [value (.getValue editor)]
                                                          (reset! a value))))
                                 (.on editor "focus"
-                                     (fn [_] (reset! editor-currently-focused id))))
+                                     (fn [_] (reset! editor-currently-focused id)))
+
+                                (if-not (empty? (:click-coords options))
+                                  (let [[x y] (:click-coords options)
+                                        pos (.coordsChar editor (clj->js {:left x :top y}))]
+                                    (.setCursor editor pos)
+                                    )))
 
       :component-will-unmount #(let [{:keys [id editor]} (r/state %)]
                                 (swap! editor-index dissoc id)
                                 (.off editor))
 
-                              :reagent-render (fn []
-                                                [:textarea {:style {:width "100%" :height "100%" :display "flex" :background "red" :flex 1}}])})))
+      :reagent-render         (fn []
+                                [:textarea {:style {:width "100%" :height "100%" :display "flex" :background "red" :flex 1}}])})))
