@@ -8,21 +8,22 @@
   font-family monospace
   margin 15px
 
-.display-cell
+.cell
   width 250px
   height 120px
   margin 15px
   display inline-block
 
-.display-cell-source, .display-cell-value
+.cell-source, .cell-value
   width 100%
   height 100%
-  border 1px solid #eee
+  //border 15px solid #eee
   display flex
   box-sizing border-box
 
-.display-cell-value
+.cell-value
   padding 5px 4px
+  word-break break-word
 
 .CodeMirror
   display flex
@@ -33,15 +34,15 @@
   flex 1
   height auto
 
-.display-cell
+.cell
   position relative
   cursor text
-  .display-cell-meta-id
+  .cell-meta-id
     display none
-  &:hover .display-cell-meta-id
+  &:hover .cell-meta-id
     display block
 
-.display-cell-meta
+.cell-meta
   padding 3px 4px
   // background #f7f7f7
   position absolute
@@ -53,14 +54,22 @@
   width 100%
   box-sizing border-box
 
-.display-cell-meta-id
+.cell-meta-id
   color #ccc
-  float left
+  position absolute
+  bottom 1px
+  left 4px
 
-.display-cell-meta-formula
+.cell-meta-cljs
   color #ccc
-  float right
-  margin 0 2px
+  position absolute
+  bottom 1px
+  right 6px
+
+.cell-value
+ > div:first-child
+   margin -5px
+   width 100%
 
 .touch-btn
   font-size: 40px

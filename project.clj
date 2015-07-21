@@ -8,7 +8,8 @@
                  [org.clojure/clojurescript "0.0-3308"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [reagent "0.5.0"]
-                 [cljs-ajax "0.3.13"]]
+                 [cljs-ajax "0.3.13"]
+                 [cljs-cm-editor "0.1.0-SNAPSHOT"]]
 
   :plugins [[lein-cljsbuild "1.0.5"]
             [lein-figwheel "0.3.5"]]
@@ -34,7 +35,7 @@
                          :main cells.core
                          :optimizations :simple
                          :pretty-print false
-                         :externs ["resources/private/js/codemirror-externs.js"]
+                         ;:externs ["resources/private/js/codemirror-externs.js"]
                          }}]}
 
   :figwheel {
