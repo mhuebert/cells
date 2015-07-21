@@ -24,6 +24,7 @@
 .cell-value
   padding 5px 4px
   word-break break-word
+  white-space pre-wrap
 
 .CodeMirror
   display flex
@@ -37,34 +38,6 @@
 .cell
   position relative
   cursor text
-  .cell-meta-id
-    display none
-  &:hover .cell-meta-id
-    display block
-
-.cell-meta
-  padding 3px 4px
-  // background #f7f7f7
-  position absolute
-  bottom 1px
-  left 1px
-  font-family "Helvetica Neue", Helvetica, sans-serif
-  font-size 12px
-  z-index 1
-  width 100%
-  box-sizing border-box
-
-.cell-meta-id
-  color #ccc
-  position absolute
-  bottom 1px
-  left 4px
-
-.cell-meta-cljs
-  color #ccc
-  position absolute
-  bottom 1px
-  right 6px
 
 .cell-value
  > div:first-child
@@ -73,14 +46,14 @@
 
 .touch-btn
   font-size: 40px
-  width 100px
-  height 100px
+  width 120px
+  height 120px
   box-sizing border-box
-  line-height 95px
+  line-height 115px
   text-align center
   background: #efefef
   display: inline-block
-  margin: 0 30px
+  margin: 15px 30px
   cursor: pointer
   transition 0.1s all linear
   &:hover
