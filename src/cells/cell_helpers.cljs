@@ -7,7 +7,6 @@
   (if-let [rxn (get @reactions id)] (dispose! rxn)))
 
 (defn clear-intervals! [id]
-  (prn "clear intervals for" id)
   (doall (map js/clearInterval (get @interval-ids id)))
   (swap! interval-ids assoc id []))
 
@@ -54,7 +53,6 @@
   {:cell      cell
    :cell!     cell!
    :pulse!    (partial pulse! id)
-   :interval! (partial interval! id)
    :self!     (partial cell! id)
    :self      (partial cell id)
    })

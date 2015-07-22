@@ -1,23 +1,29 @@
 (ns cells.state
   (:require [reagent.core :as r :refer [cursor]]))
 
-(defonce cells (r/atom {1 {:source "it was that other time,"}
+(defonce cells (r/atom {
+                        1 {:source "Berlin is not so hot today"}
                         2 {:source "(pulse!
   #(str \" rgba(\" (rand-int 255) \", \" (rand-int 255) \", \" (rand-int 255) \", \" (rand 1) \") \") 100)" }
-                        3 {:source "(interval!
-#(cell! (max 5 (int (cell 4)))
+                        3 {:source "(cell! (int (cell 4))
   [:div {:style
     {:background (cell 2)}}
-    (cell 1)]) 50)"}
-                        4 {:source "(pulse! #(inc (max 5 (int (self)))) 4000)"}
+    (cell 5)])"}
+                        4 {:source "(pulse! #(inc (max 6 (int (self)))) 4000)"}
+                        5 {:source "(pulse! #(clojure.string/join \" \"(shuffle (clojure.string/split (cell 1) \" \" ))) 500)"}
 
 
 
                         }))
 
-(defonce outputs (r/atom {}))
+(defonce index (r/atom {:outputs {}
+                        :interval-ids {}
+                        :reactions {}
+                        :cell-views []}))
 
-(defonce interval-ids (atom {}))
-(defonce reactions (atom {}))
+(defonce outputs (cursor index [:outputs]))
 
-(defonce cell-views (r/atom []))
+(defonce interval-ids (cursor index [:interval-ids]))
+(defonce reactions (cursor index [:reactions]))
+
+(defonce cell-views (cursor index [:cell-views]))
