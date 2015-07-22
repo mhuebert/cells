@@ -1,14 +1,19 @@
 (ns cells.cell-helpers
   (:require [reagent.core :as r :refer [cursor]]
-            [reagent.ratom :refer [dispose!]]
-            [cells.state :refer [cells interval-ids reactions]]))
+            [reagent.ratom :refer [dispose! -peek-at]]
+            [cells.state :refer [cells index]]))
+
+(def ^:dynamic *suspend-reactions* false)
+
+(defn cljs? [source]
+  (= (first source) \())
 
 (defn dispose-reaction! [id]
-  (if-let [rxn (get @reactions id)] (dispose! rxn)))
+  (if-let [rxn (get-in @index [:reactions id])] (dispose! rxn)))
 
 (defn clear-intervals! [id]
-  (doall (map js/clearInterval (get @interval-ids id)))
-  (swap! interval-ids assoc id []))
+  (doall (map js/clearInterval (get-in @index [:interval-ids id])))
+  (swap! index assoc-in [:interval-ids id] []))
 
 (defn new-cell []
   (let [id (inc (count @cells))]
@@ -19,12 +24,15 @@
     id))
 
 (defn cell [id]
-  (let [cell @(cursor cells [id])]
-    (or (:value cell) (:source cell))))
+  (let [d (if *suspend-reactions* -peek-at deref)
+        cell (cursor cells [id])
+        {:keys [value source]} (d cell)]
+    (if (cljs? source) value (or value source))))
 
 (defn source [id]
-  (let [cell @(cursor cells [id])]
-    (:source cell)))
+  (let [d (if *suspend-reactions* -peek-at deref)
+        source (cursor cells [id :source])]
+    (d source)))
 
 (defn cell!
   ([val] (cell! (new-cell) val))
@@ -41,12 +49,12 @@
    (assert (number? n) "interval must be provided with a speed")
    (let [n (max 24 n)
          exec #(try
-                (let [res (f)]
+                (let [res (binding [*suspend-reactions* true] (f))]
                   (if pulse? (do
                                (cell! id res))))
                 (catch js/Error e (.log js/console "pulse! error" id e)))
          interval-id (js/setInterval exec n)]
-     (swap! interval-ids assoc id (conj (or (get @interval-ids id) []) interval-id))
+     (swap! index update-in [:interval-ids id] #(conj (or % []) interval-id))
      f)))
 
 (defn pulse!
