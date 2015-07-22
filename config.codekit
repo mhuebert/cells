@@ -39,6 +39,15 @@
 		"shouldRunAutoprefixer": 1,
 		"shouldRunBless": 1
 		},
+	"\/src\/styles\/codemirror-3024-day.css": {
+		"fileType": 16,
+		"ignore": 0,
+		"ignoreWasSetByUser": 0,
+		"inputAbbreviatedPath": "\/src\/styles\/codemirror-3024-day.css",
+		"outputAbbreviatedPath": "No Output Path",
+		"outputPathIsOutsideProject": 0,
+		"outputPathIsSetByUser": 0
+		},
 	"\/src\/styles\/codemirror-solarized.css": {
 		"fileType": 16,
 		"ignore": 0,
