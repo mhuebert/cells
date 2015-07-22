@@ -1,72 +1,49 @@
 (ns cells.core
   ^:figwheel-always
-  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]
+                   [reagent.ratom :refer [run!]])
   (:require
       [reagent.core :as r :refer [cursor]]
+
       [cells.components :as c]
-      [cells.cell-helpers :refer [eval-context cell! new-cell]]
+      [cells.cell-helpers :refer [eval-context cell! new-cell clear-intervals! dispose-reaction!]]
       [cells.state :as state]
-      [goog.net.XhrIo :as xhr]
+      [cells.compile :refer [compile]]
       [clojure.string :refer [join]]
       [cljs-cm-editor.core :refer [cm-editor]]
-      [cljs.reader :refer [read-string]]
       [cljs.core.async :refer [put! chan <! >!]]))
 
 (enable-console-print!)
 
-
-
-(defn wrap-source [source]
-  (str "(fn [{:keys [" (join " " (map name (keys (eval-context 1)))) "]}]" source ")"))
-
-(def compile-url "https://himera-open.herokuapp.com/compile")
-#_(def compile-url "http://localhost:8001/compile")
-(defn compile [source]
-  (let [c (chan)
-        source (wrap-source source)]
-    (xhr/send compile-url
-              #(let [text (-> % .-target .getResponseText)
-                     js (try (-> text read-string :js)
-                             (catch js/Error e (.log js/console e)))]
-                (if js (put! c js) (prn "no value put" text)))
-              "POST"
-              (str "{:expr " source "}")
-              (clj->js {"Content-Type" "application/clojure"}))
-    c))
-
-
-
-
 (defn cljs? [source]
   (= (first source) \())
 
-(defn run-cell! [id]
-
+(defn run-cell! [id f]
+  (clear-intervals! id)
+  (dispose-reaction! id)
   (try
-    (let [f @(r/cursor state/cells [id :compiled :compiled-fn])
-          context (eval-context id)]
-      (f context))
+    (let [context (eval-context id)]
+      (swap! state/reactions assoc id (run! (f context))))
     (catch js/Error e (do
                         (.log js/console e)
                         (cell! id (c/c-error (str e)))))))
 
 (defn update-function-cell! [source id]
   (go
-    (let [compiled-fn (js/eval (<! (compile source)))]
-      (swap! state/cells assoc-in [id :compiled]
-             {:compiled-source source
-              :compiled-fn compiled-fn})
-      (run-cell! id))))
+    (let [compiled-fn (js/eval (<! (compile source)))
+          cell (cursor state/outputs [id])]
+      (swap! cell merge {id {:compiled-source source
+                             :compiled-fn     compiled-fn}})
+
+
+      (run-cell! id compiled-fn))))
 
 (defn eval-cljs! [id source]
   "Deref the source & compiled function "
-  (let [{:keys [compiled-source compiled-fn]} @(r/cursor state/cells [id :compiled])
+  (let [{:keys [compiled-source compiled-fn]} (get @state/outputs id)
         valid-compiled-fn? (and compiled-fn (= compiled-source source))]
-    (if valid-compiled-fn?
-      (run-cell! id)
-      (do (update-function-cell! source id)))
-    #_(swap! cells assoc-in [id :value] value)
-    #_value))
+    (if-not valid-compiled-fn?
+      (update-function-cell! source id))))
 
 (defn click-coords [e]
   "On a click event, return click position or empty list."
@@ -75,32 +52,42 @@
 (defn cell-view
   [id]
   (let [editor-view (r/atom {:show false})
-        editor-source (cursor editor-view [:source])
         edit-mode? #(= true (:show @editor-view))
-        source (cursor state/cells [id :source])
-        value (cursor state/cells [id :value])
+        cell (cursor state/cells [id])
+        source-atom (cursor state/cells [id :source])
         show-editor #(do
                       (reset! editor-view {:show true
                                            :click-coords (click-coords %)
-                                           :source @source}))
+                                           :source @source-atom}))
         hide-editor (fn [is-cljs]
-                      (if is-cljs (reset! source @editor-source))
-                      (reset! editor-view {:show false}))
+                      (reset! editor-view {:show false})
+                      (if is-cljs (reset! source-atom (str @source-atom " "))))
         register-cell #(reset! state/cell-views [{:id id :component %}])]
-    (r/create-class {:component-did-mount register-cell
+
+    (r/create-class {:component-did-mount (fn [this]
+                                            (register-cell this)
+
+                                            (add-watch source-atom (keyword (str id "-source"))
+                                                       (fn [_ _ old new]
+                                                         (if-not (= old new)
+                                                           (if (and (cljs? new) (not (edit-mode?)))
+                                                             (eval-cljs! id new)))))
+                                            @source-atom)
                      :show-editor         show-editor
                      :reagent-render      (fn []
-                                            (let [is-cljs (cljs? @source)]
-                                              (if is-cljs (eval-cljs! id @source))
+                                            (let [{:keys [source value]} @cell
+                                                  is-cljs (cljs? source)]
                                               [:div {:class-name "cell"}
                                                [c/c-meta id is-cljs]
                                                (if (edit-mode?)
-                                                 [:div {:key "source" :on-blur #(hide-editor is-cljs) :class-name "cell-source"}
-                                                  [cm-editor (if is-cljs editor-source source) {:id id :click-coords (:click-coords @editor-view)}]]
+                                                 [:div {:key        "source"
+                                                        :on-blur    #(hide-editor is-cljs)
+                                                        :class-name "cell-source"}
+                                                  [cm-editor source-atom {:id id :click-coords (:click-coords @editor-view)}]]
                                                  [:div {:key        "value"
                                                         :class-name "cell-value"
                                                         :on-click   show-editor}
-                                                  (or @value @source)])]))
+                                                  (or value source)])]))
                      })))
 
 (defn app []

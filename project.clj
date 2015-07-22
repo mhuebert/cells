@@ -7,7 +7,7 @@
   :dependencies [[org.clojure/clojure "1.7.0"]
                  [org.clojure/clojurescript "0.0-3308"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
-                 [reagent "0.5.0"]
+                 [reagent "0.5.1-SNAPSHOT"]
                  [cljs-ajax "0.3.13"]
                  [cljs-cm-editor "0.1.0-SNAPSHOT"]]
 
