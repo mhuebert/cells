@@ -8,8 +8,8 @@
 (defn wrap-source [source]
   (str "(fn [{:keys [" (join " " (map name (keys (eval-context 1)))) "]}]" source ")"))
 
-#_(def compile-url "http://localhost:8001/compile")
-(def compile-url "https://himera-open.herokuapp.com/compile")
+(def compile-url "http://localhost:8001/compile")
+#_(def compile-url "https://himera-open.herokuapp.com/compile")
 
 (defn compile [source]
   (let [c (chan)
@@ -17,7 +17,7 @@
     (xhr/send compile-url
               #(let [text (-> % .-target .getResponseText)
                      js (try (-> text read-string :js)
-                             (catch js/Error e (.log js/console e)))]
+                             (catch js/Error e (.log js/console "compile error" e)))]
                 (if js (put! c js) (prn "no value put" text)))
               "POST"
               (str "{:expr " source "}")

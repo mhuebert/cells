@@ -1,9 +1,20 @@
 (ns cells.cell-helpers
+  (:require-macros [reagent.ratom :refer [run!]])
   (:require [reagent.core :as r :refer [cursor]]
             [reagent.ratom :refer [dispose! -peek-at]]
-            [cells.state :refer [cells index]]))
+            [cells.state :refer [cells index]]
+            [cells.components :as c]))
 
 (def ^:dynamic *suspend-reactions* false)
+(def ^:dynamic *deref-cells* false)
+(declare cell)
+(enable-console-print!)
+(aset js/window.cljs.core "_deref"
+      (let [deref (aget js/window "cljs" "core" "_deref")]
+        (fn [x]
+          (if (or (number? x) (keyword? x))
+            (cell x) (deref x)))))
+
 
 (defn cljs? [source]
   (= (first source) \())
@@ -24,22 +35,25 @@
     id))
 
 (defn cell [id]
-  (let [d (if *suspend-reactions* -peek-at deref)
+  (let [d (if *suspend-reactions* -peek-at cljs.core/deref)
         cell (cursor cells [id])
         {:keys [value source]} (d cell)]
     (if (cljs? source) value (or value source))))
 
+
+
 (defn source [id]
-  (let [d (if *suspend-reactions* -peek-at deref)
+  (let [d (if *suspend-reactions* -peek-at cljs.core/deref)
         source (cursor cells [id :source])]
     (d source)))
 
 (defn cell!
   ([val] (cell! (new-cell) val))
-  ([id val]
+  ([id fn-or-val]
    (let [target (cursor cells [id :value])
-         val (if (fn? val) (val (cell id)) val)]
+         val (if (fn? fn-or-val) (fn-or-val (cell id)) fn-or-val)]
      (reset! target val))))
+
 
 (defn interval
   ([id f] (interval id f 500))
@@ -49,7 +63,8 @@
    (assert (number? n) "interval must be provided with a speed")
    (let [n (max 24 n)
          exec #(try
-                (let [res (binding [*suspend-reactions* true] (f))]
+                (let [res (binding [*suspend-reactions* true
+                                    *deref-cells* true] (f))]
                   (if pulse? (do
                                (cell! id res))))
                 (catch js/Error e (.log js/console "pulse! error" id e)))
@@ -70,5 +85,19 @@
    :self!     (partial cell! id)
    :self      (partial cell id)
    :source    source
+   :deref cell
    })
 
+(defn clear-function-cell! [id]
+  (clear-intervals! id)
+  (dispose-reaction! id)
+  (swap! index assoc-in [:outputs id] {}))
+
+(defn run-cell! [id f]
+  (clear-function-cell! id)
+  (try
+    (let [context (eval-context id)]
+      (swap! index assoc-in [:reactions id] (binding [*deref-cells* true] (run! (f context)))))
+    (catch js/Error e (do
+                        (.log js/console "run-cell! error" e)
+                        (cell! id (c/c-error (str e)))))))
