@@ -54,6 +54,7 @@
                                (cell! id res))))
                 (catch js/Error e (.log js/console "pulse! error" id e)))
          interval-id (js/setInterval exec n)]
+     (exec)
      (swap! index update-in [:interval-ids id] #(conj (or % []) interval-id))
      f)))
 
