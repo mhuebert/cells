@@ -22,7 +22,6 @@
   box-sizing border-box
 
 .cell-value
-  padding 5px 4px
   word-break break-word
   white-space pre-wrap
 
@@ -37,32 +36,42 @@
 
 .cm-s-3024-day.CodeMirror
   background white
-  margin-left -3px
-  padding-top 1px
+  margin-left -7px
+  margin-top -4px
 
 .cell
   position relative
   cursor text
-
+.cell-meta
+  font-size: 12px
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif
+  height 14px
+  margin-bottom 4px
 .cell-value
  > div:first-child
-   margin -5px
    width 100%
+.show-formula
+  color rgb(186,186,186)
+  &:hover
+    color rgb(0, 164, 255)
+    cursor pointer
+
 
 .touch-btn
-  font-size: 40px
-  width 120px
-  height 120px
-  box-sizing border-box
-  line-height 115px
-  text-align center
-  background: #efefef
-  display: inline-block
-  margin: 15px 30px
-  cursor: pointer
-  transition 0.1s all linear
-  &:hover
-     font-size 65px
+  .cell-value
+    display block
+    font-size: 40px
+    line-height 115px
+    text-align center
+    background: #f9f9f9
+    cursor: pointer
+    transition 0.1s all linear
+    color #ddd
+    font-size 65px
+
+    &:hover
+      font-size 95px
+
 
 div.CodeMirror
   .cm-string
@@ -83,3 +92,29 @@ div.CodeMirror
 
   .cm-keyword
     color #FF0000
+.legend-bracket
+  color #ddd
+  font-size 16px
+.function-legend
+  background: #f9f9f9
+  vertical-align top
+  display: inline-block
+  margin: 0 10px 10px 0
+  white-space: pre-wrap
+  padding: 10px
+  color: #aaa
+  font-size: 14px
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif
+  
+
+
+
+
+
+
+
+
+
+
+
+

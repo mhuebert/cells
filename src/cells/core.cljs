@@ -1,79 +1,67 @@
 (ns cells.core
   ^:figwheel-always
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]]
-                   [reagent.ratom :refer [run!]])
   (:require
-    [CodeMirror]
-    [CodeMirror-match-brackets]
-    [CodeMirror-overlay]
-    [CodeMirror-deref]
-    [CodeMirror-subpar]
-    [reagent.core :as r :refer [cursor]]
-    [cells.components :as c]
-    [cells.cell-helpers :refer [eval-context cell! new-cell cljs? run-cell! clear-function-cell!]]
-    [cells.state :as state :refer [index]]
-    [cells.compile :refer [compile]]
-    [clojure.string :refer [join]]
-    [cljs-cm-editor.core :refer [cm-editor]]
-    [cljs.core.async :refer [put! chan <! >!]]))
+    [cells.js]
+    [cells.state :as state]
+    [cells.keys :refer [register]]
+    [reagent.core :as r]
+    [cells.cell-helpers :refer [new-cell cljs?]]
+    [cells.timing :refer [clear-function-cell!]]
+    [cells.compile :refer [update-function-cell!]]
+    [cljs-cm-editor.core :refer [cm-editor]]))
 
 (enable-console-print!)
-
-
-
-(defn has-valid-fn? [id source]
-  (let [{:keys [compiled-source compiled-fn]} (get-in @index [:outputs id])]
-    (and compiled-fn (= compiled-source source))))
-
-
-(defn update-function-cell! [id source]
-  (if-not (has-valid-fn? id source)
-    (go
-      (let [compiled-fn (js/eval (<! (compile source)))]
-        (swap! index update-in [:outputs id] merge {id {:compiled-source source
-                                                        :compiled-fn     compiled-fn}})
-        (run-cell! id compiled-fn)))))
 
 (defn click-coords [e]
   "On a click event, return click position or empty list."
   (if (.-currentTarget e) [(.-pageX e) (.-pageY e)] []))
 
+(register "ctrl+r" #(when-let [id @state/current-cell]
+                         (let [source (get-in @state/cells [id :source])]
+                           (if (cljs? source) (update-function-cell! id source)))))
+
 (defn cell-view
   [id]
   (let [editor-view (r/atom {:editing false})
-        edit-mode? #(= true (:editing @editor-view))
-        cell (cursor state/cells [id])
-        source-atom (cursor state/cells [id :source])
-        hide-editor #(reset! editor-view {:editing      false})
-        show-editor #(reset! editor-view {:editing      true
-                                          :focus true
-                                          :click-coords (click-coords %)})
+        value-atom (r/cursor state/cells [id :value])
+        source-atom (r/cursor state/cells [id :source])
+        show-editor (fn [e]
+                      (reset! state/current-cell id)
+                      (reset! editor-view {:editing      true
+                                           :focus        true
+                                           :dirty        false
+                                           :click-coords (click-coords e)}))
+
         handle-change (fn [old new]
-                        (if (and (cljs? old) (not (cljs? new)))
+                        (when (and (cljs? old) (not (cljs? new)))
                           (clear-function-cell! id))
-                        (if (and (cljs? new) (not (edit-mode?)))
+                        (when (and (cljs? new) (:dirty @editor-view) (not (:editing @editor-view)))
                           (update-function-cell! id new))
-                        (if-not (cljs? new)
-                          (swap! cell assoc :value new)))
+                        (when-not (cljs? new)
+                          (reset! value-atom new)))
+
         handle-editor-blur (fn []
-                             (hide-editor)
+                             (reset! state/current-cell nil)
+                             (swap! editor-view assoc :editing false)
                              (let [s @source-atom]
-                               (if (cljs? s) (handle-change s s)))
-                             )]
+                               (if (cljs? s) (handle-change s s))))]
 
     (r/create-class {:component-did-mount (fn [this]
-                                            (swap! index assoc-in [:cell-views id] this)
+
+                                            (swap! state/index assoc-in [:cell-views id] this)
 
                                             (add-watch source-atom (keyword (str id "-source"))
                                                        (fn [_ _ old new]
-                                                         (if-not (= old new) (handle-change old new))))
+                                                         (when-not (= old new)
+                                                           (if-not (:dirty @editor-view) (swap! editor-view assoc :dirty not))
+                                                           (handle-change old new))))
 
                                             (let [s @source-atom] (if (cljs? s) (update-function-cell! id s))))
                      :show-editor         show-editor
                      :reagent-render      (fn []
-                                            (let [{:keys [source value]} @cell
+                                            (let [source @source-atom value @value-atom
                                                   is-cljs (cljs? source)
-                                                  editor? (cond (edit-mode?) true
+                                                  editor? (cond (:editing @editor-view) true
                                                                 (and is-cljs (not value)) true
                                                                 :else false)]
                                               [:div {:class-name "cell"}
@@ -85,9 +73,7 @@
                                                              (if-not editor?
                                                                [:span {:key      "formula"
                                                                        :on-click show-editor
-                                                                       :class    "show-formula"
-                                                                       :style    {:cursor "pointer"
-                                                                                  :color  "rgb(186, 186, 186)"}} "show formula"])])
+                                                                       :class-name    "show-formula"} "show formula"])])
 
                                                 ]
                                                (if editor?
@@ -106,45 +92,32 @@
                                                   (or value source)])]))
                      })))
 
-(defn fn-spec [operator args description]
+(defn doc [type operator args description]
   (reduce into
-          [:div {:class-name "function-legend"
-                 :style {:background "#f9f9f9"
-                         :display "inline-block"
-                         :margin "0 10px 10px 0"
-                         :white-space "pre-wrap"
-                         :padding 10
-                         :color "#aaa"
-                         :font-size 13
-                         :font-family "'Helvetica Neue', Helvetica, Arial, sans-serif"}}
-           [:strong
-            {:style {:color "#333"
-                     :font-size 15}}
-            operator]]
-          [(interpose "," (map #(do [:span {:style {:color     "rgb(0, 164, 255)"
-                                                    }} " " %]) args))
-           [[:div {:style {:color "#7d7d7d"
-                           :font-size 14
-                           :font-weight 300}} description]]
-           ]))
+          [:div {:class-name "function-legend"}
+           [:strong {:style {:color "#333" :font-size 15}} operator]]
+          [(interpose "," (map #(do [:span {:style {:color "rgb(0, 164, 255)"}} " " %]) args))
+           [[:div {:style {:color "#7d7d7d" :font-size 14 :font-weight 300}} description]]]))
 
 (defn app []
   [:div
    [:div {:style {:font-family "monospace" :margin 30}}
-    [fn-spec "cell" ["id"] "get cell value"]
-    [fn-spec "cell!" ["id" "val-or-fn"] "set cell to val-or-fn"]
-    [fn-spec "self" [] "current cell value"]
-    [fn-spec "self!" ["val-or-fn"] "cell! on current cell"]
-    [fn-spec "interval" ["n" "fn"] "call fn every n ms"]
-    [fn-spec "pulse!" ["n" "val-or-fn"] "cell! on current cell every n ms"]
-    [fn-spec "source" ["id"] "get cell source"]]
+    [doc :fn "@" ["id"] "cell value"]
+    [doc :fn "cell!" ["id" "val-or-fn"] "set cell to val-or-fn"]
+    [doc :fn "interval" ["n" "fn"] "call fn every n ms"]
+    [doc :var "self" [] "current cell id"]
+    [doc :key [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-r"] [] "run current cell"]
 
-   (into [:div {:class-name "cells"}]
-         (for [[id _] @state/cells] [cell-view id]))
-   [:a {:on-click   (fn []
-                      (let [id (new-cell)]
-                        (js/setTimeout
-                          #(.showEditor (get-in @index [:cell-views id])) 100)))
-        :class-name "touch-btn"} "+"]])
+    #_[fn-spec "source" ["id"] "get cell source"]]
+
+   (reduce into [:div {:class-name "cells"}]
+           [(for [[id _] @state/cells] [cell-view id])
+            [[:a {:on-click   (fn []
+                                (let [id (new-cell)]
+                                  (js/setTimeout
+                                    #(.showEditor (get-in @state/index [:cell-views id])) 100)))
+                  :class-name "touch-btn cell"}
+              [:div {:class-name "cell-meta"}]
+              [:div {:class-name "cell-value"} "+"]]]])])
 
 (r/render-component [app] (.getElementById js/document "app"))
