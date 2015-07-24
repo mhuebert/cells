@@ -4,10 +4,10 @@
   (:require [clojure.string :refer [join]]
             [cljs.core.async :refer [put! chan <! >!]]
             [goog.net.XhrIo :as xhr]
-            [cells.cell-helpers :refer [eval-context cell! new-cell]]
+            [cells.cell-helpers :refer [eval-context cell! new-cell cell-type]]
             [cljs.reader :refer [read-string]]
             [cells.state :refer [index]]
-            [cells.timing :refer [clear-function-cell!]]
+            [cells.timing :refer [dispose-cell-function!]]
             [cells.components :as c]))
 
 (defn wrap-source [source]
@@ -34,14 +34,19 @@
     (and compiled-fn (= compiled-source source))))
 
 (defn run-cell! [id compiled-fn]
-  (clear-function-cell! id)
+  (dispose-cell-function! id)
   (let [reaction (run! (compiled-fn (eval-context id)))]
     (swap! index assoc-in [:reactions id] reaction)))
 
-(defn update-function-cell! [id source]
-  (if-not (valid-fn? id source)
+(defn wrap [id source]
+  (condp = (cell-type source)
+    :cljs-expr source
+    :cljs-return (str "(cell! " id (subs source 1) ")")))
+
+(defn update-cell-function! [id source]
+  (when (and (not= :text (cell-type source)) (not (valid-fn? id source)))
     (go
-      (let [compiled-fn (js/eval (<! (compile source)))]
+      (let [compiled-fn (js/eval (<! (compile (wrap id source))))]
         (swap! index update-in [:outputs id] merge {id {:compiled-source source
                                                         :compiled-fn     compiled-fn}})
         (run-cell! id compiled-fn)))))

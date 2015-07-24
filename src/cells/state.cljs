@@ -1,9 +1,10 @@
 (ns cells.state
   (:require [reagent.core :as r :refer [cursor]]))
 
-(defonce cells (r/atom (sorted-map 1 {:source "water apple melon fruit milkshake berlin"}
+
+(defonce cells (r/atom (sorted-map 1 {:source "![\"water\" \"apple\" \"melon\" \"fruit\" \"milkshake\" \"berlin\"]"}
                                    2 {:source "(interval 1000 #(cell! self
-  (clojure.string/join \" \"(shuffle (clojure.string/split @1 \" \" )))))"}
+  (clojure.string/join \" \"(shuffle @1))))"}
                                    3 {:source "(interval 200 #(cell! self
   (str \" rgba(\" (rand-int 255) \", \" (rand-int 255) \", \" (rand-int 255) \", \" (rand 1) \") \")))"}
                                    4 {:source "(let

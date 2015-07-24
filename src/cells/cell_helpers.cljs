@@ -2,15 +2,16 @@
   (:require-macros [reagent.ratom :refer [run!]])
   (:require [reagent.core :as r :refer [cursor]]
             [reagent.ratom :refer [dispose! -peek-at]]
-            [cells.timing :refer [dispose-reaction! clear-intervals! clear-function-cell!]]
-            [cells.state :refer [cells index]]
-            [cells.components :as c]))
+            [cells.timing :refer [dispose-reaction! clear-intervals! dispose-cell-function!]]
+            [cells.state :as state :refer [cells]]))
+
+
+(enable-console-print!)
+
 
 (def ^:dynamic *suspend-reactions* false)
 
 (declare cell)
-(enable-console-print!)
-
 (aset js/window.cljs.core "_deref"
       (let [deref (aget js/window "cljs" "core" "_deref")]
         (fn [x]
@@ -18,8 +19,13 @@
             (cell x) (deref x)))))
 
 
-(defn cljs? [source]
-  (#{\( \[ \{} (first source)))
+(defn cell-type [source]
+  (cond (#{\(} (first source)) :cljs-expr
+        (#{\!} (first source)) :cljs-return
+        :else :text))
+
+(defn cell-is [type source]
+  (= type (cell-type source)))
 
 (defn new-cell []
   (let [id (inc (count @cells))]
@@ -33,7 +39,7 @@
   (let [d (if *suspend-reactions* -peek-at cljs.core/deref)
         cell (cursor cells [id])
         {:keys [value source]} (d cell)]
-    (if (cljs? source) value (or value source))))
+    (if (#{:cljs-expr :cljs-return} (cell-type source)) value (or value source))))
 
 (defn source [id]
   (let [d (if *suspend-reactions* -peek-at cljs.core/deref)
@@ -57,7 +63,7 @@
                     (catch js/Error e (.log js/console "pulse! error" id e)))
          interval-id (js/setInterval exec n)]
      (binding [*suspend-reactions* true] (exec))
-     (swap! index update-in [:interval-ids id] #(conj (or % []) interval-id))
+     (swap! state/index update-in [:interval-ids id] #(conj (or % []) interval-id))
      f)))
 
 (defn eval-context [id]

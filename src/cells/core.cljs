@@ -5,10 +5,10 @@
     [cells.state :as state]
     [cells.keys :refer [register]]
     [reagent.core :as r]
-    [cells.cell-helpers :refer [new-cell cljs?]]
-    [cells.timing :refer [clear-function-cell!]]
-    [cells.compile :refer [update-function-cell!]]
-    [cljs-cm-editor.core :refer [cm-editor]]))
+    [cells.cell-helpers :refer [new-cell cell-is cell-type]]
+    [cells.timing :refer [dispose-cell-function!]]
+    [cells.compile :refer [update-cell-function!]]
+    [cljs-cm-editor.core :refer [cm-editor cm-editor-static]]))
 
 (enable-console-print!)
 
@@ -16,83 +16,78 @@
   "On a click event, return click position or empty list."
   (if (.-currentTarget e) [(.-pageX e) (.-pageY e)] []))
 
+(def codemirror-opts {:theme         "3024-day"
+                      :extraKeys     (aget js/window "subparKeymap")
+                      :matchBrackets true})
+
 (register "ctrl+r" #(when-let [id @state/current-cell]
                          (let [source (get-in @state/cells [id :source])]
-                           (if (cljs? source) (update-function-cell! id source)))))
+                           (if (#{:cljs-expr :cljs-return} (cell-type source)) (update-cell-function! id source)))))
+
+(defn handle-source-change!
+  [id source {:keys [dirty? editing?]}]
+  (when (and (#{:cljs-expr :cljs-return} (cell-type source)) dirty? (not editing?))             ; cell was edited
+    (update-cell-function! id source))
+  (when (= :text (cell-type source))
+    (dispose-cell-function! id)
+    (swap! state/cells assoc-in [id :value] source)))           ; cell is not a formula cell
 
 (defn cell-view
   [id]
-  (let [editor-view (r/atom {:editing false})
-        value-atom (r/cursor state/cells [id :value])
-        source-atom (r/cursor state/cells [id :source])
-        show-editor (fn [e]
-                      (reset! state/current-cell id)
-                      (reset! editor-view {:editing      true
-                                           :focus        true
-                                           :dirty        false
-                                           :click-coords (click-coords e)}))
+  (let [editor-state (r/atom {:editing? false})
+        value (r/cursor state/cells [id :value])
+        source (r/cursor state/cells [id :source])
+        show-editor #(do (reset! state/current-cell id)
+                         (reset! editor-state {:editing? true  :focus true :dirty? false :click-coords (click-coords %)}))
+        handle-editor-blur #(do (reset! state/current-cell nil)
+                                (swap! editor-state assoc :editing? false)
+                                ; we only update formula cells on blur. this is why we track :dirty?
+                                (handle-source-change! id @source @editor-state))]
 
-        handle-change (fn [old new]
-                        (when (and (cljs? old) (not (cljs? new)))
-                          (clear-function-cell! id))
-                        (when (and (cljs? new) (:dirty @editor-view) (not (:editing @editor-view)))
-                          (update-function-cell! id new))
-                        (when-not (cljs? new)
-                          (reset! value-atom new)))
+    (r/create-class
+      {:component-did-mount (fn [this]
+                              (swap! state/index assoc-in [:cell-views id] this) ; register this view with global cell index
+                              (add-watch source :handle-source-changes
+                                         (fn [_ _ old-source new-source]
+                                           (when-not (= old-source new-source)
+                                             (swap! editor-state assoc :dirty? true)
+                                             (handle-source-change! id new-source @editor-state))))
 
-        handle-editor-blur (fn []
-                             (reset! state/current-cell nil)
-                             (swap! editor-view assoc :editing false)
-                             (let [s @source-atom]
-                               (if (cljs? s) (handle-change s s))))]
+                              (if (#{:cljs-expr :cljs-return} (cell-type @source)) (update-cell-function! id @source)))
+       :show-editor         show-editor
+       :reagent-render      (fn []
+                              (let [src @source
+                                    val @value
+                                    show-editor? (cond (:editing? @editor-state) true ;user has clicked to edit
+                                                       (and (#{:cljs-return :cljs-expr} (cell-type src)) (not val)) true
+                                                       #_(= :cljs-return (cell-type src)) #_true ;
+                                                       #_(and is-cljs (not val)) #_true ;cell has formula but no value
+                                                       :else false)]
+                                [:div {:class-name "cell"}
+                                 [:div {:class-name "cell-meta"} (str id)
+                                  [:span (condp = (cell-type src)
+                                           :cljs-expr " ƒ "
+                                           :cljs-return " !ƒ "
+                                           :text "")
+                                   (if-not show-editor? ;this is a formula cell but we are not editing
+                                     [:span {:key      "formula" :class-name "show-formula"
+                                             :on-click show-editor} "show formula"])]]
+                                 (if show-editor?
+                                   [:div {:class-name "cell-source" :key "source"
+                                          :on-blur    handle-editor-blur
+                                          :on-focus   #(reset! editor-state {:editing? true})}
+                                    [cm-editor source (merge codemirror-opts {:id id} @editor-state)]]
+                                   [:div {:class-name "cell-value" :key "value"
+                                          :on-click   show-editor}
+                                    (condp = (cell-type src)
+                                      :cljs-expr (or val src)
+                                      :cljs-return [cm-editor-static value (merge codemirror-opts {:readOnly "nocursor"
+                                                                                                   :on-click show-editor})] #_(let [v (if val (str val) src)]
+                                                     [cm-editor value (merge codemirror-opts {:readOnly true})])
+                                      :text (or val src))])]))
+       })))
 
-    (r/create-class {:component-did-mount (fn [this]
-
-                                            (swap! state/index assoc-in [:cell-views id] this)
-
-                                            (add-watch source-atom (keyword (str id "-source"))
-                                                       (fn [_ _ old new]
-                                                         (when-not (= old new)
-                                                           (if-not (:dirty @editor-view) (swap! editor-view assoc :dirty not))
-                                                           (handle-change old new))))
-
-                                            (let [s @source-atom] (if (cljs? s) (update-function-cell! id s))))
-                     :show-editor         show-editor
-                     :reagent-render      (fn []
-                                            (let [source @source-atom value @value-atom
-                                                  is-cljs (cljs? source)
-                                                  editor? (cond (:editing @editor-view) true
-                                                                (and is-cljs (not value)) true
-                                                                :else false)]
-                                              [:div {:class-name "cell"}
-                                               [:div {:style      {:font-size   12
-                                                                   :font-family "'Helvetica Neue', Helvetica, Arial, sans-serif"}
-                                                      :class-name "cell-meta"}
-                                                (str id)
-                                                (if is-cljs [:span " ƒ "
-                                                             (if-not editor?
-                                                               [:span {:key      "formula"
-                                                                       :on-click show-editor
-                                                                       :class-name    "show-formula"} "show formula"])])
-
-                                                ]
-                                               (if editor?
-                                                 [:div {:key        "source"
-                                                        :on-blur    handle-editor-blur
-                                                        :on-focus   #(reset! editor-view {:editing true})
-                                                        :class-name "cell-source"}
-                                                  [cm-editor source-atom (merge @editor-view
-                                                                                {:theme         "3024-day"
-                                                                                 :id            id
-                                                                                 :extraKeys     (aget js/window "subparKeymap")
-                                                                                 :matchBrackets true})]]
-                                                 [:div {:key        "value"
-                                                        :class-name "cell-value"
-                                                        :on-click   show-editor}
-                                                  (or value source)])]))
-                     })))
-
-(defn doc [type operator args description]
+(defn doc [operator args description]
   (reduce into
           [:div {:class-name "function-legend"}
            [:strong {:style {:color "#333" :font-size 15}} operator]]
@@ -102,11 +97,11 @@
 (defn app []
   [:div
    [:div {:style {:font-family "monospace" :margin 30}}
-    [doc :fn "@" ["id"] "cell value"]
-    [doc :fn "cell!" ["id" "val-or-fn"] "set cell to val-or-fn"]
-    [doc :fn "interval" ["n" "fn"] "call fn every n ms"]
-    [doc :var "self" [] "current cell id"]
-    [doc :key [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-r"] [] "run current cell"]
+    [doc "@" ["id"] "cell value"]
+    [doc "cell!" ["id" "val-or-fn"] "set cell to val-or-fn"]
+    [doc "interval" ["n" "fn"] "call fn every n ms"]
+    [doc "self" [] "current cell id"]
+    [doc [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-r"] [] "run current cell"]
 
     #_[fn-spec "source" ["id"] "get cell source"]]
 
@@ -114,8 +109,7 @@
            [(for [[id _] @state/cells] [cell-view id])
             [[:a {:on-click   (fn []
                                 (let [id (new-cell)]
-                                  (js/setTimeout
-                                    #(.showEditor (get-in @state/index [:cell-views id])) 100)))
+                                  (js/setTimeout #(.showEditor (get-in @state/index [:cell-views id])) 100)))
                   :class-name "touch-btn cell"}
               [:div {:class-name "cell-meta"}]
               [:div {:class-name "cell-value"} "+"]]]])])

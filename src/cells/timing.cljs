@@ -3,7 +3,6 @@
             [cells.state :refer [index]]))
 
 (defn dispose-reaction! [id]
-
   (when-let [rxn (get-in @index [:reactions id])]
     (dispose! rxn)))
 
@@ -11,7 +10,7 @@
   (doall (map js/clearInterval (get-in @index [:interval-ids id])))
   (swap! index assoc-in [:interval-ids id] []))
 
-(defn clear-function-cell! [id]
+(defn dispose-cell-function! [id]
   (clear-intervals! id)
   (dispose-reaction! id)
   (swap! index assoc-in [:outputs id] {}))
