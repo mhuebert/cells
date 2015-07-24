@@ -4,7 +4,7 @@
   (:require [clojure.string :refer [join]]
             [cljs.core.async :refer [put! chan <! >!]]
             [goog.net.XhrIo :as xhr]
-            [cells.cell-helpers :refer [eval-context cell! new-cell cell-type]]
+            [cells.cell-helpers :refer [eval-context cell! new-cell source-type]]
             [cljs.reader :refer [read-string]]
             [cells.state :refer [index]]
             [cells.timing :refer [dispose-cell-function!]]
@@ -13,8 +13,10 @@
 (defn wrap-source [source]
   (str "(fn [{:keys [" (join " " (map name (keys (eval-context 1)))) "]}]" source ")"))
 
-(def compile-url "http://localhost:8001/compile")
-#_(def compile-url "https://himera-open.herokuapp.com/compile")
+#_(def compile-url "http://localhost:8001/compile")
+(def compile-url (if (= "localhost:3449" (aget js/window "location" "host"))
+                   "http://localhost:8001/compile"
+                   "https://himera-open.herokuapp.com/compile"))
 
 (defn compile [source]
   (let [c (chan)
@@ -35,16 +37,17 @@
 
 (defn run-cell! [id compiled-fn]
   (dispose-cell-function! id)
-  (let [reaction (run! (compiled-fn (eval-context id)))]
-    (swap! index assoc-in [:reactions id] reaction)))
+  (try (let [reaction (run! (compiled-fn (eval-context id)))]
+         (swap! index assoc-in [:reactions id] reaction))
+       (catch js/Error e (cell! id [c/c-error (str e)]))))
 
 (defn wrap [id source]
-  (condp = (cell-type source)
+  (condp = (source-type source)
     :cljs-expr source
     :cljs-return (str "(cell! " id (subs source 1) ")")))
 
 (defn update-cell-function! [id source]
-  (when (and (not= :text (cell-type source)) (not (valid-fn? id source)))
+  (when (and (not= :text (source-type source)) (not (valid-fn? id source)))
     (go
       (let [compiled-fn (js/eval (<! (compile (wrap id source))))]
         (swap! index update-in [:outputs id] merge {id {:compiled-source source

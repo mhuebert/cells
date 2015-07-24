@@ -19,13 +19,13 @@
             (cell x) (deref x)))))
 
 
-(defn cell-type [source]
+(defn source-type [source]
   (cond (#{\(} (first source)) :cljs-expr
         (#{\!} (first source)) :cljs-return
         :else :text))
 
 (defn cell-is [type source]
-  (= type (cell-type source)))
+  (= type (source-type source)))
 
 (defn new-cell []
   (let [id (inc (count @cells))]
@@ -39,7 +39,7 @@
   (let [d (if *suspend-reactions* -peek-at cljs.core/deref)
         cell (cursor cells [id])
         {:keys [value source]} (d cell)]
-    (if (#{:cljs-expr :cljs-return} (cell-type source)) value (or value source))))
+    (if (#{:cljs-expr :cljs-return} (source-type source)) value (or value source))))
 
 (defn source [id]
   (let [d (if *suspend-reactions* -peek-at cljs.core/deref)
@@ -47,10 +47,10 @@
     (d source)))
 
 (defn cell!
-  ([id fn-or-val]
+  ([id val]
    (binding [*suspend-reactions* false]                     ; other cells can react to all value changes
      (let [target (cursor cells [id :value])]
-       (if (fn? fn-or-val) (swap! target fn-or-val) (reset! target fn-or-val))))))
+       (reset! target val)))))
 
 (defn interval
   ([id f] (interval id f 500))
@@ -64,13 +64,13 @@
          interval-id (js/setInterval exec n)]
      (binding [*suspend-reactions* true] (exec))
      (swap! state/index update-in [:interval-ids id] #(conj (or % []) interval-id))
-     f)))
+     (exec))))
 
 (defn eval-context [id]
-  {:cell!     cell!
+  {:cell!    cell!
    :interval (partial interval id)
-   :self      id
-   :source    source
+   :self     id
+   :source   source
    })
 
 

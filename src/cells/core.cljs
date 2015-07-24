@@ -5,7 +5,7 @@
     [cells.state :as state]
     [cells.keys :refer [register]]
     [reagent.core :as r]
-    [cells.cell-helpers :refer [new-cell cell-is cell-type]]
+    [cells.cell-helpers :refer [new-cell cell-is source-type]]
     [cells.timing :refer [dispose-cell-function!]]
     [cells.compile :refer [update-cell-function!]]
     [cljs-cm-editor.core :refer [cm-editor cm-editor-static]]))
@@ -22,13 +22,13 @@
 
 (register "ctrl+r" #(when-let [id @state/current-cell]
                          (let [source (get-in @state/cells [id :source])]
-                           (if (#{:cljs-expr :cljs-return} (cell-type source)) (update-cell-function! id source)))))
+                           (if (#{:cljs-expr :cljs-return} (source-type source)) (update-cell-function! id source)))))
 
 (defn handle-source-change!
   [id source {:keys [dirty? editing?]}]
-  (when (and (#{:cljs-expr :cljs-return} (cell-type source)) dirty? (not editing?))             ; cell was edited
+  (when (and (#{:cljs-expr :cljs-return} (source-type source)) dirty? (not editing?))             ; cell was edited
     (update-cell-function! id source))
-  (when (= :text (cell-type source))
+  (when (= :text (source-type source))
     (dispose-cell-function! id)
     (swap! state/cells assoc-in [id :value] source)))           ; cell is not a formula cell
 
@@ -53,23 +53,26 @@
                                              (swap! editor-state assoc :dirty? true)
                                              (handle-source-change! id new-source @editor-state))))
 
-                              (if (#{:cljs-expr :cljs-return} (cell-type @source)) (update-cell-function! id @source)))
+                              (if (#{:cljs-expr :cljs-return} (source-type @source)) (update-cell-function! id @source)))
        :show-editor         show-editor
        :reagent-render      (fn []
                               (let [src @source
                                     val @value
                                     show-editor? (cond (:editing? @editor-state) true ;user has clicked to edit
-                                                       (and (#{:cljs-return :cljs-expr} (cell-type src)) (not val)) true
+                                                       (fn? val) true ;always show src for functions
+                                                       (and (#{:cljs-return :cljs-expr} (source-type src)) (not val)) true
                                                        #_(= :cljs-return (cell-type src)) #_true ;
                                                        #_(and is-cljs (not val)) #_true ;cell has formula but no value
                                                        :else false)]
                                 [:div {:class-name "cell"}
-                                 [:div {:class-name "cell-meta"} (str id)
-                                  [:span (condp = (cell-type src)
-                                           :cljs-expr " ƒ "
-                                           :cljs-return " !ƒ "
-                                           :text "")
-                                   (if-not show-editor? ;this is a formula cell but we are not editing
+                                 [:div {:class-name "cell-meta"} (str id " ")
+                                  [:span
+                                   (let [t (source-type src)]
+                                     (cond
+                                       (fn? val) "ƒn "
+                                       (= :cljs-expr t) "ƒ "
+                                       (= :cljs-return t) "!ƒ "))
+                                   (if (and (not show-editor?) (not (fn? val))) ;this is a formula cell but we are not editing
                                      [:span {:key      "formula" :class-name "show-formula"
                                              :on-click show-editor} "show formula"])]]
                                  (if show-editor?
@@ -79,10 +82,11 @@
                                     [cm-editor source (merge codemirror-opts {:id id} @editor-state)]]
                                    [:div {:class-name "cell-value" :key "value"
                                           :on-click   show-editor}
-                                    (condp = (cell-type src)
+                                    (condp = (source-type src)
                                       :cljs-expr (or val src)
-                                      :cljs-return [cm-editor-static value (merge codemirror-opts {:readOnly "nocursor"
-                                                                                                   :on-click show-editor})] #_(let [v (if val (str val) src)]
+                                      :cljs-return [cm-editor-static (if (fn? @value) source value) ;always display functions as source
+                                                    (merge codemirror-opts {:readOnly "nocursor" :matchBrackets false
+                                                                            :on-click show-editor})] #_(let [v (if val (str val) src)]
                                                      [cm-editor value (merge codemirror-opts {:readOnly true})])
                                       :text (or val src))])]))
        })))
@@ -97,10 +101,10 @@
 (defn app []
   [:div
    [:div {:style {:font-family "monospace" :margin 30}}
-    [doc "@" ["id"] "cell value"]
-    [doc "cell!" ["id" "val-or-fn"] "set cell to val-or-fn"]
+    [doc "@" ["id"] "get cell value"]
+    [doc "cell!" ["id" "value"] "set cell value"]
     [doc "interval" ["n" "fn"] "call fn every n ms"]
-    [doc "self" [] "current cell id"]
+    [doc [:span {:style {:font-style "italic"}} "self"] [] "current cell id"]
     [doc [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-r"] [] "run current cell"]
 
     #_[fn-spec "source" ["id"] "get cell source"]]
