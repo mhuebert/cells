@@ -13,17 +13,17 @@
   height 120px
   margin 15px
   display inline-block
+  position relative
+  cursor text
+  // overflow hidden
 
-.cell-source, .cell-value
+.cell-source, .cell-value, .cell-as-html
   width 100%
   height 100%
   //border 15px solid #eee
   display flex
   box-sizing border-box
 
-.cell-value
-  word-break break-word
-  white-space pre-wrap
 
 .CodeMirror
   display flex
@@ -39,18 +39,15 @@
   margin-left -7px
   margin-top -4px
 
-.cell
-  position relative
-  cursor text
-  overflow hidden
 .cell-meta
   font-size: 12px
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif
   height 14px
   margin-bottom 4px
-.cell-value
- > div:first-child
-   width 100%
+.cell-as-html
+  position relative
+   > div:first-child  
+     width 100%
 .show-formula
   color rgb(186,186,186)
   &:hover

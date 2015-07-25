@@ -12,20 +12,19 @@
 (def ^:dynamic *suspend-reactions* false)
 
 (declare cell)
-(aset js/window.cljs.core "_deref"
-      (let [deref (aget js/window "cljs" "core" "_deref")]
+(aset js/window.cljs.core "deref"
+      (let [deref (aget js/window "cljs" "core" "deref")]
         (fn [x]
           (if (or (number? x) (keyword? x))
-            (cell x) (deref x)))))
+            (do
+              (cell x)) (deref x)))))
 
 
 (defn source-type [source]
-  (cond (#{\(} (first source)) :cljs-expr
+  :cljs-return
+ #_(cond (#{\(} (first source)) :cljs-expr
         (#{\!} (first source)) :cljs-return
         :else :text))
-
-(defn cell-is [type source]
-  (= type (source-type source)))
 
 (defn new-cell []
   (let [id (inc (count @cells))]
@@ -37,9 +36,8 @@
 
 (defn cell [id]
   (let [d (if *suspend-reactions* -peek-at cljs.core/deref)
-        cell (cursor cells [id])
-        {:keys [value source]} (d cell)]
-    (if (#{:cljs-expr :cljs-return} (source-type source)) value (or value source))))
+        value (cursor cells [id :value])]
+    (d value)))
 
 (defn source [id]
   (let [d (if *suspend-reactions* -peek-at cljs.core/deref)
@@ -71,6 +69,7 @@
    :interval (partial interval id)
    :self     id
    :source   source
+   :html   #(with-meta % {:hiccup true})
    })
 
 
