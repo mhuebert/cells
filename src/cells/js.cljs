@@ -3,4 +3,5 @@
     [CodeMirror]
     [CodeMirror-match-brackets]
     [CodeMirror-overlay]
-    [CodeMirror-subpar]))
+    [CodeMirror-subpar]
+    [CodeMirror-deref]))

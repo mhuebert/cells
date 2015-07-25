@@ -5,10 +5,11 @@
     [cells.state :as state]
     [cells.keys :refer [register]]
     [reagent.core :as r]
+    [cells.components :as c]
     [cells.cell-helpers :refer [new-cell]]
     [cells.timing :refer [dispose-cell-function!]]
     [cells.compile :refer [update-cell-function!]]
-    [cljs-cm-editor.core :refer [cm-editor cm-editor-static]]))
+    [cljs-cm-editor.core :refer [cm-editor cm-editor-static focus-last-editor]]))
 
 (enable-console-print!)
 
@@ -18,7 +19,8 @@
 
 (def codemirror-opts {:theme         "3024-day"
                       :extraKeys     (aget js/window "subparKeymap")
-                      :matchBrackets true})
+                      :matchBrackets true
+                      :mode "clojureDeref"})
 
 (register "ctrl+r" #(when-let [id @state/current-cell]
                          (let [source (get-in @state/cells [id :source])]
@@ -35,7 +37,7 @@
         value (r/cursor state/cells [id :value])
         source (r/cursor state/cells [id :source])
         show-editor #(do (reset! state/current-cell id)
-                         (reset! editor-state {:editing? true  :autofocus true :dirty? false :click-coords (click-coords %)}))
+                         (reset! editor-state {:editing? true :dirty? false  :click-coords (click-coords %)}))
         handle-editor-blur #(do (reset! state/current-cell nil)
                                 (swap! editor-state assoc :editing? false)
                                 ; we only update formula cells on blur. this is why we track :dirty?
@@ -49,7 +51,6 @@
                                            (when-not (= old-source new-source)
                                              (swap! editor-state assoc :dirty? true)
                                              (handle-source-change! id new-source @value @editor-state))))
-
                               (update-cell-function! id @source))
        :show-editor         show-editor
        :reagent-render      (fn []
@@ -69,11 +70,10 @@
                                        [:div {:class-name "cell-source" :key "source"
                                               :on-blur    handle-editor-blur
                                               :on-focus   #(swap! editor-state assoc :editing? true)}
-                                        [cm-editor source (merge codemirror-opts {:id id} @editor-state)]]
+                                        [cm-editor source (merge @editor-state codemirror-opts {:id id})]]
 
                                        (some-> val meta :hiccup)
-                                       [:div {:class-name "cell-as-html" :key "as-html"
-                                              :on-click   show-editor}
+                                       [:div {:class-name "cell-as-html" :key "as-html"}
                                         val]
 
                                        :else
@@ -81,31 +81,17 @@
                                               :on-click   show-editor}
                                         [cm-editor-static (if (fn? val) source value) ;always display functions as source
                                          (merge codemirror-opts {:readOnly "nocursor" :matchBrackets false
-                                                                 :on-click show-editor})]])]))})))
+                                                                 })]])]))})))
 
-(defn doc [operator args description]
-  (reduce into
-          [:div {:class-name "function-legend"}
-           [:strong {:style {:color "#333" :font-size 15}} operator]]
-          [(interpose "," (map #(do [:span {:style {:color "rgb(0, 164, 255)"}} " " %]) args))
-           [[:div {:style {:color "#7d7d7d" :font-size 14 :font-weight 300}} description]]]))
+
+(aset js/window "show" (fn [id] (.showEditor (get-in @state/index [:cell-views id]))))
 
 (defn app []
   [:div
-   [:div {:style {:font-family "monospace" :margin 30}}
-    [doc "@" ["id"] "get cell value"]
-    [doc "cell!" ["id" "value"] "set cell value"]
-    [doc "interval" ["n" "fn"] "call fn every n ms"]
-    [doc [:span {:style {:font-style "italic"}} "self"] [] "current cell id"]
-    [doc [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-r"] [] "run current cell"]
-
-    #_[fn-spec "source" ["id"] "get cell source"]]
-
+   [c/c-docs]
    (reduce into [:div {:class-name "cells"}]
            [(for [[id _] @state/cells] [cell-view id])
-            [[:a {:on-click   (fn [e]
-                                (let [id (new-cell)]
-                                  (js/setTimeout #(.showEditor (get-in @state/index [:cell-views id]) e) 200)))
+            [[:a {:on-click   #(do (new-cell) (js/setTimeout focus-last-editor 200))
                   :class-name "touch-btn cell"}
               [:div {:class-name "cell-meta"}]
               [:div {:class-name "cell-value"} "+"]]]])])

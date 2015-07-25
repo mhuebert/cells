@@ -6,12 +6,10 @@
             [cells.state :as state :refer [cells]]))
 
 
-(enable-console-print!)
-
-
 (def ^:dynamic *suspend-reactions* false)
 
 (declare cell)
+
 (aset js/window.cljs.core "deref"
       (let [deref (aget js/window "cljs" "core" "deref")]
         (fn [x]
@@ -19,36 +17,24 @@
             (do
               (cell x)) (deref x)))))
 
-
-(defn source-type [source]
-  :cljs-return
- #_(cond (#{\(} (first source)) :cljs-expr
-        (#{\!} (first source)) :cljs-return
-        :else :text))
-
 (defn new-cell []
   (let [id (inc (count @cells))]
-    (swap! cells assoc id {:source ""
-                           :value nil
-                           :compiled-fn nil
-                           :compiled-source nil})
+    (swap! cells assoc id {:source ""})
     id))
 
-(defn cell [id]
+(defn cell-attr [field id]
   (let [d (if *suspend-reactions* -peek-at cljs.core/deref)
-        value (cursor cells [id :value])]
+        value (cursor cells [id field])]
     (d value)))
 
-(defn source [id]
-  (let [d (if *suspend-reactions* -peek-at cljs.core/deref)
-        source (cursor cells [id :source])]
-    (d source)))
+(def cell (partial cell-attr :value))
+(def source (partial cell-attr :source))
 
 (defn cell!
-  ([id val]
+  ([id fn-or-val]
    (binding [*suspend-reactions* false]                     ; other cells can react to all value changes
      (let [target (cursor cells [id :value])]
-       (reset! target val)))))
+       (reset! target fn-or-val)))))
 
 (defn interval
   ([id f] (interval id f 500))
