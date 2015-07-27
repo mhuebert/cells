@@ -2,13 +2,16 @@
   ^:figwheel-always
   (:require
     [cells.js]
+    [cljs.user]
     [cells.state :as state]
     [cells.keys :refer [register]]
     [reagent.core :as r]
+    [cells.events]
+    ;[cells.refactor :refer [rename-symbol]]
     [cells.components :as c]
     [cells.cell-helpers :refer [new-cell]]
     [cells.timing :refer [dispose-cell-function!]]
-    [cells.compile :refer [update-cell-function!]]
+    [cells.compile :refer [compile-cell!]]
     [cljs-cm-editor.core :refer [cm-editor cm-editor-static focus-last-editor]]))
 
 (enable-console-print!)
@@ -23,48 +26,61 @@
                       :mode "clojureDeref"})
 
 (register "ctrl+r" #(when-let [id @state/current-cell]
-                         (let [source (get-in @state/cells [id :source])]
-                           (update-cell-function! id source))))
+                         (let [source @(get @state/cell-source id)]
+                           (compile-cell! id source))))
 
-(defn handle-source-change!
-  [id source value {:keys [dirty? editing?]}]
-  (when (or (and dirty? (not editing?)) (or (string? value) (number? value)))                    ; cell was edited
-    (update-cell-function! id source)))
+
+
+(defn cell-id [id]
+  (let [n (r/atom (str (name id)))
+        focused (r/atom false)
+        save #()                                            ;#(rename-symbol id (symbol @n))
+        handle-change (fn [e]                               ; allowed chars in symbols: http://stackoverflow.com/a/3961674/3421050
+                        (reset! n (clojure.string/replace (-> e .-target .-value) #"[^\w-!?&\d+*_:]+" "-")))]
+    (fn [id]
+      (let [display-id (if-not (.startsWith @n state/number-prefix) @n (if @focused @n (subs @n (count state/number-prefix))))]
+        [:input
+         {:class-name   "cell-id"
+          :on-change    handle-change
+          :on-focus     #(reset! focused true)
+          :on-blur      (fn [] (save) (reset! focused nil))
+          :on-key-press #(if (= 13 (.-which %)) (save))
+          :style        {:width (+ 3 (* 7.80127 (count display-id)))}
+          :value        display-id}]))))
 
 (defn cell-view
   [id]
   (let [editor-state (r/atom {:editing? false})
-        value (r/cursor state/cells [id :value])
-        source (r/cursor state/cells [id :source])
+        source (get @state/cell-source id)
+        value (r/cursor state/cell-values [id])
         show-editor #(do (reset! state/current-cell id)
-                         (reset! editor-state {:editing? true :dirty? false  :click-coords (click-coords %)}))
+                         (reset! editor-state {:editing? true :click-coords (click-coords %)}))
         handle-editor-blur #(do (reset! state/current-cell nil)
                                 (swap! editor-state assoc :editing? false)
-                                ; we only update formula cells on blur. this is why we track :dirty?
-                                (handle-source-change! id @source @value @editor-state))]
+                                (compile-cell! id @source))]
 
     (r/create-class
       {:component-did-mount (fn [this]
                               (swap! state/index assoc-in [:cell-views id] this) ; register this view with global cell index
+                              (compile-cell! id @source)
                               (add-watch source :handle-source-changes
                                          (fn [_ _ old-source new-source]
-                                           (when-not (= old-source new-source)
-                                             (swap! editor-state assoc :dirty? true)
-                                             (handle-source-change! id new-source @value @editor-state))))
-                              (update-cell-function! id @source))
+                                           (when (and (not= old-source new-source) (not (:editing? @editor-state)))
+                                             (compile-cell! id new-source)))))
        :show-editor         show-editor
-       :reagent-render      (fn []
-                              (let [val @value
-                                    show-editor? (cond (:editing? @editor-state) true ;user has clicked to edit
-                                                       ;(fn? val) true ;always show src for functions
-                                                       (not val) true
-                                                       :else false)]
-                                [:div {:class-name "cell"}
-                                 [:div {:class-name "cell-meta"} (str id " ")
+       :reagent-render (fn []
+                         (let [val @value
+                               show-editor? (cond (:editing? @editor-state) true ;user has clicked to edit
+                                                  (fn? val) true ;always show src for functions
+                                                  (not val) true
+                                                  :else false)]
+                                [:div {:style {:width "100%" :height "100%"}}
+                                 [:div {:class-name "cell-meta"}
+                                  [cell-id id]
                                   [:span
                                    (if (and (not show-editor?) (not (fn? val))) ;this is a formula cell but we are not editing
                                      [:span {:key      "formula" :class-name "show-formula"
-                                             :on-click show-editor} "show formula"])]]
+                                             :on-click show-editor} "source"])]]
 
                                  (cond show-editor?
                                        [:div {:class-name "cell-source" :key "source"
@@ -86,14 +102,20 @@
 
 (aset js/window "show" (fn [id] (.showEditor (get-in @state/index [:cell-views id]))))
 
+(defn c-new-cell []
+  [:a {:on-click   #(do (new-cell) (js/setTimeout focus-last-editor 200))
+       :class-name "touch-btn cell"
+       :key        "new-cell"}
+   [:div {:class-name "cell-meta" :key "meta"}]
+   [:div {:class-name "cell-value" :key "value"} "+"]])
+
 (defn app []
   [:div
    [c/c-docs]
-   (reduce into [:div {:class-name "cells"}]
-           [(for [[id _] @state/cells] [cell-view id])
-            [[:a {:on-click   #(do (new-cell) (js/setTimeout focus-last-editor 200))
-                  :class-name "touch-btn cell"}
-              [:div {:class-name "cell-meta"}]
-              [:div {:class-name "cell-value"} "+"]]]])])
+   [:div {:key "cells" :class-name "cells"}
+    (for [id (keys @state/cell-source)] [:div {:key id :class-name "cell"} [cell-view id]])
+    [c-new-cell]]
+   ])
 
 (r/render-component [app] (.getElementById js/document "app"))
+

@@ -2,12 +2,13 @@
 
 (defn c-error [content]
   (with-meta
-    [:span {:style {:color "rgb(255, 147, 147)" :background "rgb(137, 0, 0)" :margin -5 :padding 5}}
+    [:span {:style {:color "rgb(255, 147, 147)" :background "rgb(137, 0, 0)" :padding 5}}
      content] {:hiccup true}))
 
 (defn c-doc [operator args description]
   (reduce into
-          [:div {:class-name "function-legend"}
+          [:div {:class-name "function-legend"
+                 :key "docs"}
            [:strong {:style {:color "#333" :font-size 15}} operator]]
           [(interpose "," (map #(do [:span {:style {:color "rgb(0, 164, 255)"}} " " %]) args))
            [[:div {:style {:color "#7d7d7d" :font-size 14 :font-weight 300}} description]]]))

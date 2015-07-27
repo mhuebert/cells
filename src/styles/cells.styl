@@ -2,6 +2,9 @@
 @require "codemirror.css"
 @require "codemirror-3024-day.css"
 
+$pink = #FF00C3
+$blue = #00A4FF
+
 .cells
   display flex
   flex-wrap wrap
@@ -24,7 +27,19 @@
   display flex
   box-sizing border-box
 
-
+.cell-id
+  border none
+  border-bottom 3px solid transparent
+  font-size 13px
+  padding 3px 3px 1px 
+  font-family monospace
+  // font-weight 500
+  // color #aaa
+  &:focus
+    border-color black
+    color black
+    outline 0
+    
 .CodeMirror
   display flex
   //flex-direction column
@@ -36,20 +51,21 @@
 
 .cm-s-3024-day.CodeMirror
   background white
-  margin-left -7px
-  margin-top -4px
+  
 
 .cell-meta
   font-size: 12px
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif
-  height 14px
+  height 20px
   margin-bottom 4px
+  
 .cell-as-html
   position relative
-   > div:first-child  
-     width 100%
+  > div:first-child  
+    width 100%
 .show-formula
   color rgb(186,186,186)
+  
   &:hover
     color rgb(0, 164, 255)
     cursor pointer
@@ -86,7 +102,7 @@ div.CodeMirror
     background-color rgb(255, 234, 195)
     padding 0 7.80127px
   .cm-number
-    color #FF00C3
+    color $pink
 
   .cm-keyword
     color #FF0000
@@ -104,7 +120,9 @@ div.CodeMirror
   font-size: 14px
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif
   
-
+.cell-referenced
+  .cell-value .CodeMirror
+    background-color: rgba(244, 253, 2, 0.20)  
 .cm-deref
   background-color: rgba(244, 253, 2, 0.38)
   color: rgb(2, 141, 253)

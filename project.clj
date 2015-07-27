@@ -6,10 +6,12 @@
 
   :dependencies [[org.clojure/clojure "1.7.0"]
                  ;[org.clojure/clojurescript "0.0-3308"]
-                 [org.clojure/clojurescript "0.0-3620"]
+                 [org.clojure/clojurescript "0.0-3652"]
                  [org.clojure/tools.reader "0.10.0-SNAPSHOT"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
-                 [reagent "0.5.1-SNAPSHOT"]
+                 #_[reagent "0.5.1-SNAPSHOT"]
+                 [reagent "0.5.0"]
+                 [rewrite-cljs "0.3.0"]
                  [cljs-ajax "0.3.13"]
                  [cljs-cm-editor "0.1.1-SNAPSHOT"]]
 
@@ -48,7 +50,7 @@
              :css-dirs ["resources/public/css"] ;; watch and update CSS
 
              ;; Start an nREPL server into the running figwheel process
-             ;; :nrepl-port 7888
+             :nrepl-port 7888
 
              ;; Server Ring Handler (optional)
              ;; if you want to embed a ring handler into the figwheel http-kit

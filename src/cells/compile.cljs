@@ -3,67 +3,89 @@
                    [reagent.ratom :refer [run!]])
   (:require [clojure.string :refer [join]]
             [cljs.core.async :refer [put! chan <! >!]]
-            [goog.net.XhrIo :as xhr]
-            [cells.cell-helpers :refer [eval-context cell! new-cell]]
+            [cljs.user :refer [self *last-val]]
             [cljs.reader :refer [read-string]]
             [cljs.js :as cljs]
-            [cells.state :refer [index]]
+            [cells.state :as state :refer [index]]
             [cells.timing :refer [dispose-cell-function!]]
-            [cells.components :as c]))
+            [reagent.core :as r]))
 
-(defn wrap-source [source]
-  (str "(fn [{:keys [" (join " " (map name (keys (eval-context 1)))) "]}]" source ")"))
+(enable-console-print!)
 
-(def cstate (cljs/empty-state))
-
-#_(defn init-repl [mode]
-  (set! *target* mode)
-  ;; Setup the initial repl namespace
-  (cljs/compile cstate
-                 "(fn[x] (prn x))"
-                 'cljs.user
-                 {:eval cljs/js-eval
-                  :load (fn [{:keys [name macros path]}]
-                          (prn name macros path)
-                          (prn (-> js/window (aget "cljs" "core") .toString))
-                          (condp = name
-                            'clojure.core {:lang :js
-                                           :context :expr
-                                           :source (-> js/window (aget "cljs" "core") .toString)}
-                            ))}
-                 (fn [res] (prn res))))
-
-(defn compile [source]
-  (let [c (chan)
-        source (wrap-source source)]
-    (cljs/eval-str cstate source nil {:eval cljs/js-eval
-                                         :verbose true
-                                         :context :expr
-                                         :load (fn [{:keys [name macros]}] (prn name macros))
-                                         :def-emits-var true}
-                   (fn [{:keys [value error]}]
-                     (if error (put! c #(prn "compile error" source error))
-                               (if value (put! c value)
-                                         (prn "no value" error source)))))
+(def compiler-state (cljs/empty-state))
+(defn eval
+  [source]
+  (let [c (chan)]
+    (try
+      (cljs/eval-str compiler-state
+                     source nil {:eval          cljs/js-eval
+                                 ;:verbose       true
+                                 :context       :expr
+                                 :warnings {:fn-deprecated false}
+                                 :def-emits-var true}
+                     (fn [{:keys [value error]}]
+                       (if error (put! c #(prn "compile error" source error))
+                                 (if value (put! c value) (put! c "")
+                                           ))))
+      (catch js/Error e (.log js/console "compile error " e)))
     c))
 
-(defn valid-fn? [id source]
-  (let [{:keys [compiled-source compiled-fn]} (get-in @index [:outputs id])]
-    (and compiled-fn (= compiled-source source))))
+(defonce _
+         (eval "(declare value! update-cached-value! source! cell html self)"))
 
-(defn run-cell! [id compiled-fn]
+(defn deref-cljs-user-symbols [js-source]
+  (let [referenced-symbols (doall (set (map (comp symbol last) (re-seq #"cljs\.user\.([^\(\)\[\]\{\}\s\;\.]+)" js-source))))]
+    (doseq [s referenced-symbols]
+      @(r/cursor state/cell-values [s]))))
+
+(defn set-cell-value! [id val]
+  (binding [*print-dup* true]
+    (eval (str "(let [res " (with-out-str (prn val)) "]
+                  (def " id " res)
+                  (update-cached-value! '" id " res ))"))))
+
+(defn run-cell! [id]
   (dispose-cell-function! id)
-  (try (let [reaction (run! (compiled-fn (eval-context id)))]
-         (swap! index assoc-in [:reactions id] reaction))
-       (catch js/Error e (cell! id (c/c-error (str e))))))
+  (binding [self id
+            *last-val (get @state/cell-values id)]
+    (try (let
+           [compiled-fn (aget js/window "cljs" "user" (str "_" id))
+            reaction (run!
+                       (eval (str  "
+                         (let [res (_" id ")]
+                           (def " id " res)
+                           (value! '" id " res ))"))
+                       (deref-cljs-user-symbols (.toString compiled-fn)))]
+           (swap! index assoc-in [:reactions id] reaction))
+         (catch js/Error e (.log js/console "run-cell! error" e)))))
 
-(defn wrap [id source]
-  (str "(cell! " id " " source ")"))
+(defn wrap-source [id source]
+  (str "(let [compiled-fn (fn [] " source ")
+              res (compiled-fn)]
+          (def _" id " compiled-fn)
+          compiled-fn)" ))
 
-(defn update-cell-function! [id source]
-  (when (not (valid-fn? id source))
-    (go
-      (let [compiled-fn (<! (compile (wrap id source)))]
-        (swap! index update-in [:outputs id] merge {id {:compiled-source source
-                                                        :compiled-fn     compiled-fn}})
-        (run-cell! id compiled-fn)))))
+(defn compile-cell! [id source]
+  (go
+    (<! (eval (wrap-source id source)))
+    (swap! index update-in [:outputs id] merge {id {:compiled-source source}})
+    (run-cell! id)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
