@@ -2,7 +2,8 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [goog.events :as events]
             [cljs.core.async :refer [put! chan <! buffer mult tap pub sub]]
-            [cells.state :as state]))
+            [cells.state :as state]
+            ))
 
 (defn listen [el type]
   (let [out (chan)]

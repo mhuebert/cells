@@ -16,8 +16,7 @@
                  "(c4 4)"
                  "(value! 'c5 \"\\\"blah\\\"\") "])
 
-(defonce index (atom {:outputs {}
-                      :interval-ids {}
+(defonce index (atom {:interval-ids {}
                       :reactions {}
                       :cell-views {}}))
 

@@ -1,6 +1,8 @@
 (ns cells.keys
-  (:require  [goog.ui.KeyboardShortcutHandler]
-             [goog.events]))
+  (:require [goog.ui.KeyboardShortcutHandler]
+            [goog.events]
+            [cells.timing :refer [compile-and-run!]]
+            [cells.state :as state]))
 
 (defonce handler (new goog.ui.KeyboardShortcutHandler js/document))
 (defonce actions (atom {}))
@@ -19,7 +21,9 @@
     (.registerShortcut handler label shortcut)
     (swap! actions assoc label func)))
 
-
+(register "ctrl+r" #(when-let [id @state/current-cell]
+                     (let [source @(get @state/cell-source id)]
+                       (compile-and-run! id source))))
 
 (defonce _
          (goog.events/listen handler goog.ui.KeyboardShortcutHandler.EventType.SHORTCUT_TRIGGERED key-event))

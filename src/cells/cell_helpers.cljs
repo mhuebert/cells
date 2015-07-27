@@ -1,14 +1,15 @@
 (ns cells.cell-helpers
-  (:require-macros [reagent.ratom :refer [run!]])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]]
+                   [reagent.ratom :refer [run!]])
   (:require [reagent.core :as r :refer [cursor]]
-            [reagent.ratom :refer [dispose! #_-peek-at]]
-            [cells.compile :refer [set-cell-value!]]
-            [cells.timing :refer [dispose-reaction! clear-intervals! dispose-cell-function!]]
+            [cells.eval :as eval]
+            [cljs.core.async :refer [put! chan <! >!]]
+            [reagent.ratom :refer [dispose!]]
+            [cells.eval]
+            [cells.timing :refer [clear-intervals! begin-cell-reaction! self]]
             [cells.state :as state :refer [cell-source cell-values]]))
 
-
 (def ^:dynamic *suspend-reactions* false)
-(def ^:dynamic self nil)
 
 (declare cell)
 
@@ -26,7 +27,6 @@
 (defn number-name []
   (inc (count @state/cell-source)))
 
-
 (defn new-cell
   ([]
    (new-cell (number-name)))
@@ -35,9 +35,8 @@
                               (new-cell id-or-source "")))
   ([id source]
    (let [id (if (number? id) (symbol (str state/number-prefix id)) id)]
-     (swap! cell-source assoc id (r/atom source)))))
-
-(defonce _ (doseq [s state/demo-cells] (new-cell s)))
+     (swap! cell-source assoc id (r/atom source))
+     (begin-cell-reaction! id))))
 
 (def html #(with-meta % {:hiccup true}))
 
@@ -47,32 +46,26 @@
      (reset! (get @cell-source id) (str val))
      nil)))
 
-(defn update-cached-value!
-  ([id val]
-   (binding [*suspend-reactions* false]                     ; other cells can react to all value changes
-     (swap! cell-values assoc id val))))
-
 (defn value! [id val]
-  (set-cell-value! id val)
-  (update-cached-value! id val)
+  (eval/set-cell-value! id val)
+  (binding [*suspend-reactions* false]
+    (swap! cell-values assoc id val))
   val)
 
-#_(defn interval
+(defn interval
   ([f] (interval f 500))
   ([n f]
    (clear-intervals! self)
    (assert (number? n) "interval must be provided with a speed")
    (let [n (max 24 n)
+         id self
          exec #(try (binding [*suspend-reactions* true]
                       (let [res (f)]
-                        (prn "must implement interval...")
-                        ))
-
-                    (catch js/Error e (.log js/console "pulse! error" self e)))
+                        (value! id res)))
+                    (catch js/Error e (.log js/console "interval error" self e)))
          interval-id (js/setInterval exec n)]
-     (binding [*suspend-reactions* true] (exec))
      (swap! state/index update-in [:interval-ids self] #(conj (or % []) interval-id))
-     (exec))))
+     (binding [*suspend-reactions* true] (f)))))
 
 
 
