@@ -40,17 +40,22 @@
 
 (def html #(with-meta % {:hiccup true}))
 
+(defn coerce-id [id]
+  (if (number? id) (symbol (str state/number-prefix id)) id))
+
 (defn source!
   ([id val]
-   (binding [*suspend-reactions* false]
-     (reset! (get @cell-source id) (str val))
-     nil)))
+   (let [id (coerce-id id)]
+     (binding [*suspend-reactions* false]
+       (reset! (get @cell-source id) (str val))
+       nil))))
 
 (defn value! [id val]
-  (eval/set-cell-value! id val)
-  (binding [*suspend-reactions* false]
-    (swap! cell-values assoc id val))
-  val)
+  (let [id (coerce-id id)]
+    (eval/set-cell-value! id val)
+    (binding [*suspend-reactions* false]
+      (swap! cell-values assoc id val))
+    val))
 
 (defn interval
   ([f] (interval f 500))

@@ -5,6 +5,7 @@
             [cljs.core.async :refer [put! chan <! >!]]
             [cljs.reader :refer [read-string]]
             [cljs.js :as cljs]
+            [cells.refactor.rename :as rename]
             [cells.state :as state :refer [index]]
             [reagent.core :as r]))
 (enable-console-print!)
@@ -45,7 +46,7 @@
                 (value! '" id " res ))")))
 
 (defn compile-cell! [id source]
-  (eval (str "(let [compiled-fn (fn [] " source ")]
+  (eval (str "(let [compiled-fn (fn [] " (rename/sugary-derefs source) ")]
           (def _" id " compiled-fn)
           compiled-fn)" )))
 
