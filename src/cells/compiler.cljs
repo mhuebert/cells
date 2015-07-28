@@ -40,7 +40,7 @@
 
 (defonce _
          (eval-str "
-         (declare interval html value values)
+         (declare interval html value values new-cell)
          (def ^:dynamic self)
          (def ^:dynamic self-id)
          "))

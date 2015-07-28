@@ -7,13 +7,13 @@
     [reagent.core :as r]
     [cells.components :as c]
     [cells.cell-helpers :refer [new-cell]]
-    [cells.timing :refer [init-cell! run-cell!]]
+    [cells.timing :refer [run-cell!]]
     [cljs-cm-editor.core :refer [cm-editor cm-editor-static focus-last-editor]]))
 
 (enable-console-print!)
 
 (defonce _
-         (go (doseq [s state/demo-cells] (<! (new-cell nil s)))))
+         (go (doseq [s state/demo-cells] (<! (new-cell s)))))
 
 (defn click-coords [e]
   "On a click event, return click position or empty list."

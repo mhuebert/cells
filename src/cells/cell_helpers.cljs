@@ -28,17 +28,18 @@
   (inc (count @state/cells)))
 
 (defn new-cell
-  ([] (new-cell nil ""))
+  ([] (new-cell (alphabet-name) ""))
+  ([source] (new-cell (alphabet-name) source))
   ([id source]
    (go
      (let [id (cond
-                (empty? id) (alphabet-name)
                 (number? id) (symbol (str state/number-prefix id))
+                (nil? id) (alphabet-name)
+                (get @cells id) (alphabet-name)
                 :else id)]
        (swap! cells assoc id (r/atom source))
        (if-not (get values id) ;may already exist if another cell is listening
          (swap! values assoc id (r/atom nil)))
-
        (<! (run-cell! id))
        id))))
 
