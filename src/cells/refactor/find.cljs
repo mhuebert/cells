@@ -8,9 +8,8 @@
 (defn has-left-parent [loc s]
   (loop [loc loc]
     (if (nil? loc) false
-                   (let [lefty (-> loc z/leftmost z/node n/sexpr)]
-                     (if (= lefty s)
-                       true
+                   (let [leftmost (-> loc z/leftmost z/node n/sexpr)]
+                     (if (= leftmost s) true
                        (recur (z/up loc)))))))
 
 (defn find [f source]

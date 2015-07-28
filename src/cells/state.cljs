@@ -6,7 +6,8 @@
 
 (defonce current-cell (atom nil))
 (defonce index (atom {:interval-ids {}
-                      :cell-views {}}))
+                      :cell-views {}
+                      :compiled-source {}}))
 
 (def number-prefix "")
 (def demo-cells ["6"

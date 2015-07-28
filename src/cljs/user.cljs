@@ -1,12 +1,18 @@
 (ns cljs.user
-  (:require [cells.cell-helpers :as helpers]))
+  (:require [cells.cell-helpers :as helpers]
+            [cells.state :as state]))
 
-(def ^:dynamic self)
-(def ^:dynamic self-id )
+(defonce ^:dynamic self nil)
+(defonce ^:dynamic self-id nil)
+
+(defonce value helpers/value)
+(defonce interval helpers/interval)
+(defonce html helpers/html)
+(defonce new-cell helpers/new-cell)
+(defonce values state/values)
 
 
-(def value! helpers/value!)
-(def source! helpers/source!)
-(def interval helpers/interval)
-(def html helpers/html)
-(def new-cell helpers/new-cell)
+
+
+;(def source! helpers/source!)
+;(def value! helpers/value!)

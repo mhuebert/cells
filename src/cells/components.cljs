@@ -20,13 +20,12 @@
 
 (defn c-docs []
   [:div {:style {:font-family "monospace" :margin 30}}
-   [c-doc "value!" ["id" "value"] "set cell value"]
-   [c-doc "source!" ["id" "string"] "set cell source"]
+   #_[c-doc "value!" ["id" "value"] "set cell value"]
+   #_[c-doc "source!" ["id" "string"] "set cell source"]
+   #_[fn-spec "source" ["id"] "get cell source"]
    [c-doc "interval" ["n" "fn"] "call fn every n ms"]
-   #_[c-doc [:span {:style {:font-style "italic"}} "self"] [] "current cell id"]
-   [c-doc [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-r"] [] "run current cell"]
-
-   #_[fn-spec "source" ["id"] "get cell source"]])
+   [c-doc [:span {:style {:font-style "italic"}} "self"] [] "current cell value"]
+   [c-doc [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-r"] [] "run current cell"]])
 
 (defn c-cell-id [id]
   (let [n (r/atom (str (name id)))

@@ -4,11 +4,11 @@
   (:require [reagent.ratom :refer [dispose! -peek-at]]
             [cells.state :as state :refer [index cells]]
             [cells.refactor.find :refer [find-reactive-symbols]]
-            [cells.eval :as eval]))
+            [cells.compiler :as eval]))
 
 (declare run-cell!)
 
-(defn refresh-dependencies [id]
+(defn set-watches! [id]
   (doseq [a (vals @state/values)] (remove-watch a id))
   (doseq [s (find-reactive-symbols @(get @state/cells id))]
     (if-not (get @state/values s) (swap! state/values assoc s (atom nil)))
@@ -17,25 +17,15 @@
                                             (run-cell! id))))))
 
 (defn clear-intervals! [id]
-  (doall (map js/clearInterval (get-in @index [:interval-ids id])))
+  (doseq [i (get-in @index [:interval-ids id])] (js/clearInterval i))
   (swap! index assoc-in [:interval-ids id] []))
 
 (defn run-cell! [id]
-  (clear-intervals! id)
   (go
-    (<! (eval/update-cell-value! id))
-    (refresh-dependencies id)))
-
-(defn compile-and-run! [id source]
-  (go (<! (eval/compile-cell! id source))
-      (run-cell! id)))
-
-(defn begin-cell-reaction! [id]
-  (go
-    (let [source-atom (get @cells id)]
-      (<! (compile-and-run! id @source-atom))
-      (add-watch source-atom :handle-source-changes
-                 (fn [_ _ old-source new-source]
-                   (when (and (not= old-source new-source) (not= id @state/current-cell))
-                     (compile-and-run! id new-source)))))))
-
+    (let [source @(get @state/cells id)
+          compiled-source (get-in @state/index [:compiled-source id])]
+      (if-not (= source compiled-source)
+        (<! (eval/compile-cell-fn id source)))
+      (clear-intervals! id)
+      (<! (eval/eval-def-cell id))
+      (set-watches! id))))

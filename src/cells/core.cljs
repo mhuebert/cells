@@ -7,7 +7,7 @@
     [reagent.core :as r]
     [cells.components :as c]
     [cells.cell-helpers :refer [new-cell]]
-    [cells.timing :refer [begin-cell-reaction! compile-and-run!]]
+    [cells.timing :refer [init-cell! run-cell!]]
     [cljs-cm-editor.core :refer [cm-editor cm-editor-static focus-last-editor]]))
 
 (enable-console-print!)
@@ -34,7 +34,7 @@
                          (reset! editor-state {:editing? true :click-coords (click-coords %)}))
         handle-editor-blur #(do (reset! state/current-cell nil)
                                 (swap! editor-state assoc :editing? false)
-                                (compile-and-run! id @source))]
+                                (run-cell! id))]
 
     (r/create-class
       {:component-did-mount (fn [this]

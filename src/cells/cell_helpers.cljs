@@ -2,13 +2,13 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop]]
                    [reagent.ratom :refer [run!]])
   (:require [reagent.core :as r :refer [cursor]]
-            [cells.eval :as eval]
+            [cells.compiler :as eval]
             [goog.net.XhrIo :as xhr]
             [cljs.core.async :refer [put! chan <! >!]]
             [reagent.ratom :refer [dispose!]]
             [cljs.reader :refer [read-string]]
-            [cells.eval]
-            [cells.timing :refer [clear-intervals! begin-cell-reaction!]]
+            [cells.compiler]
+            [cells.timing :refer [clear-intervals! run-cell!]]
             [cells.state :as state :refer [cells values]]))
 
 (declare cell)
@@ -36,53 +36,68 @@
                 (number? id) (symbol (str state/number-prefix id))
                 :else id)]
        (swap! cells assoc id (r/atom source))
-       (if-not (get values id)
+       (if-not (get values id) ;may already exist if another cell is listening
          (swap! values assoc id (r/atom nil)))
-       (<! (begin-cell-reaction! id))))))
+
+       (<! (run-cell! id))
+       id))))
 
 (def html #(with-meta % {:hiccup true}))
+
+(defn value [id]
+  @(get @values id))
 
 (defn coerce-id [id]
   (if (number? id) (symbol (str state/number-prefix id)) id))
 
-(defn source!
-  ([id val]
-   (let [id (coerce-id id)]
-     (reset! (get @cells id) (str val))
-     nil)))
-
-(defn value! [id val]
-  (let [id (coerce-id id)]
-    (eval/set-cell-value! id val)
-    (reset! (get @values id) val)
-    val))
 
 (defn get-val [id]
   (aget js/window "cljs" "user" (name id)))
+
+
 
 (defn interval
   ([f] (interval f 500))
   ([n f]
    (let [id cljs.user/self-id
          exec #(binding [cljs.user/self (get-val id)]
-                (value! id (f cljs.user/self)))]
+                (reset! (get @values id) (f cljs.user/self))
+                (eval/def-cell id))]
      (clear-intervals! id)
      (let [interval-id (js/setInterval exec (max 24 n))]
        (swap! state/index update-in [:interval-ids id] #(conj (or % []) interval-id)))
      (f (get-val id)))))
 
 
-#_(defn get-json [url]
-  (let [id self]
-    (xhr/send url
-              #(let [text (-> % .-target .getResponseText)
-                     res (try (-> text read-string :js)
-                             (catch js/Error e (.log js/console e)))]
-                (value! id (js->clj res)))
-              "GET"
-              ))
-  "...")
+(defn get-json [url]
+  (go
+    (let [c (chan)]
+      (xhr/send url
+                #(let [text (-> % .-target .getResponseText)
+                       res (try (-> text read-string :js)
+                                (catch js/Error e (.log js/console e)))]
+                  (put! c (js->clj res)))
+                "GET"
+                )
+      c)))
 
 ; put get-json in user namespace, declare it, try it
 
+
+#_(interval 500
+          (fn []
+            (.send goog.net.XhrIo "http://time.jsontest.com"
+                   #(cell! 2 (first (vals (js->clj (.getResponseJson (.-target %)))))))))
+
+#_(defn source!
+    ([id val]
+     (let [id (coerce-id id)]
+       (reset! (get @cells id) (str val))
+       nil)))
+
+#_(defn value! [id val]
+    (go (let [id (coerce-id id)]
+          (reset! (get @values id) val)
+          (<! (eval/def-cell id))
+          val)))
 
