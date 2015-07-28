@@ -10,17 +10,16 @@
 (defonce referenced-cells (r/atom #{}))
 
 (def demo-cells ["6"
-                 "(+ 3 @1)"
-                 "(+ @1 @2)"
+                 "(+ 3 a)"
+                 "(+ a b)"
                  "(fn[x](+ x 1))"
-                 "(@4 4)"
-                 "(value! '@5 \"\\\"hello, world.\\\"\") "])
+                 "(d 4)"])
 
 (defonce index (atom {:interval-ids {}
                       :reactions {}
                       :cell-views {}}))
 
-(def number-prefix "cell-")
+(def number-prefix "")
 
 
 

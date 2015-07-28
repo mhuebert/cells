@@ -9,10 +9,8 @@
                  [org.clojure/clojurescript "0.0-3652"]
                  [org.clojure/tools.reader "0.10.0-SNAPSHOT"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
-                 #_[reagent "0.5.1-SNAPSHOT"]
                  [reagent "0.5.0"]
                  [rewrite-cljs "0.3.0"]
-                 [cljs-ajax "0.3.13"]
                  [cljs-cm-editor "0.1.1-SNAPSHOT"]]
 
   :plugins [[lein-cljsbuild "1.0.5"]

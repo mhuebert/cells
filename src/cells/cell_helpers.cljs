@@ -29,9 +29,9 @@
 
 (defn new-cell
   ([]
-   (new-cell (number-name)))
+   (new-cell (alphabet-name)))
   ([id-or-source]
-   (if (string? id-or-source) (new-cell (number-name) id-or-source)
+   (if (string? id-or-source) (new-cell (alphabet-name) id-or-source)
                               (new-cell id-or-source "")))
   ([id source]
    (let [id (if (number? id) (symbol (str state/number-prefix id)) id)]
@@ -64,13 +64,13 @@
    (assert (number? n) "interval must be provided with a speed")
    (let [n (max 24 n)
          id self
-         exec #(try (binding [*suspend-reactions* true]
-                      (let [res (f)]
+         exec #(try (binding [*suspend-reactions* true self (aget js/window "cljs" "user" (name id))]
+                      (let [res (f self)]
                         (value! id res)))
                     (catch js/Error e (.log js/console "interval error" self e)))
          interval-id (js/setInterval exec n)]
      (swap! state/index update-in [:interval-ids self] #(conj (or % []) interval-id))
-     (binding [*suspend-reactions* true] (f)))))
+     (binding [*suspend-reactions* true] (f (aget js/window "cljs" "user" (name id)))))))
 
 
 
