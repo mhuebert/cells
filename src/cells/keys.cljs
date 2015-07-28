@@ -22,7 +22,7 @@
     (swap! actions assoc label func)))
 
 (register "ctrl+r" #(when-let [id @state/current-cell]
-                     (let [source @(get @state/cell-source id)]
+                     (let [source @(get @state/cells id)]
                        (compile-and-run! id source))))
 
 (defonce _

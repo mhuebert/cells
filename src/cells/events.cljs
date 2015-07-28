@@ -11,7 +11,7 @@
                    (fn [e] (put! out e)))
     out))
 
-(let [mouse-event (listen js/window "mousemove")]
+#_(let [mouse-event (listen js/window "mousemove")]
   (go-loop []
            (let [e (<! mouse-event)]
              (if (= "cm-deref" (aget e "target" "className"))

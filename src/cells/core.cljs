@@ -1,5 +1,6 @@
 (ns cells.core
   ^:figwheel-always
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require
     [cells.js] [cells.events] [cljs.user]
     [cells.state :as state]
@@ -11,7 +12,8 @@
 
 (enable-console-print!)
 
-(defonce _ (doseq [s state/demo-cells] (new-cell s)))
+(defonce _
+         (go (doseq [s state/demo-cells] (<! (new-cell nil s)))))
 
 (defn click-coords [e]
   "On a click event, return click position or empty list."
@@ -25,9 +27,10 @@
 (defn cell-view
   [id]
   (let [editor-state (r/atom {:editing? false})
-        source (get @state/cell-source id)
-        value (r/cursor state/cell-values [id])
-        show-editor #(do (reset! state/current-cell id)
+        source (get @state/cells id)
+        value (get @state/values id)
+        show-editor #(do
+                      (reset! state/current-cell id)
                          (reset! editor-state {:editing? true :click-coords (click-coords %)}))
         handle-editor-blur #(do (reset! state/current-cell nil)
                                 (swap! editor-state assoc :editing? false)
@@ -76,7 +79,7 @@
   [:div
    [c/c-docs]
    [:div {:key "cells" :class-name "cells"}
-    (for [id (keys @state/cell-source)] [:div {:key id :class-name "cell"} [cell-view id]])
+    (for [id (keys @state/cells)] [:div {:key id :class-name "cell"} [cell-view id]])
     [c/c-new-cell]]
    ])
 

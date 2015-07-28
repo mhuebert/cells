@@ -26,7 +26,7 @@
                 #(do new-symbol)))
 
 (defn rename-symbol [old-symbol new-symbol new-cell-fn]
-  (let [all-vars (set (flatten [(keys @state/cell-source)
+  (let [all-vars (set (flatten [(keys @state/cells)
                                 (keys (ns-interns 'cljs.core))
                                 (keys (ns-interns 'cljs.user))
                                 (keys (ns-interns 'cells.cell-helpers))]))]
@@ -34,9 +34,9 @@
     (when (and
             (not= old-symbol new-symbol)
             (not (all-vars new-symbol)))
-      (new-cell-fn new-symbol @(get @state/cell-source old-symbol))
-      (doseq [[_ src-atom] @state/cell-source]
+      (new-cell-fn new-symbol @(get @state/cells old-symbol))
+      (doseq [[_ src-atom] @state/cells]
         (reset! src-atom (replace-symbol @src-atom old-symbol new-symbol)))
 
-      (swap! state/cell-source dissoc old-symbol)
+      (swap! state/cells dissoc old-symbol)
       )))
