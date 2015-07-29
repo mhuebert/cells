@@ -5,6 +5,7 @@
     [cells.js] [cells.events] [cljs.user]
     [cells.state :as state]
     [reagent.core :as r]
+    [cells.events :refer [mouse-event!]]
     [cells.components :as c]
     [cells.cell-helpers :refer [new-cell alphabet-name]]
     [cells.timing :refer [run-cell!]]
@@ -24,10 +25,17 @@
                       :matchBrackets true
                       :mode "clojureDeref"})
 
+
+
+
+
+
+
 (defn cell-view
   [id]
   (let [editor-state (r/atom {:editing? false})
-        source (get @state/cells id)
+        cell (get @state/cells id)
+        source (r/cursor cell [:source])
         value (get @state/values id)
         show-editor #(do
                       (reset! state/current-cell id)
@@ -38,8 +46,8 @@
 
     (r/create-class
       {:component-did-mount (fn [this]
-                              (swap! state/index assoc-in [:cell-views id] this) ; register this view with global cell index
-                              )
+                              (swap! state/index assoc-in [:cell-views id] this)) ; register this view with global cell index
+
        :show-editor         show-editor
        :reagent-render      (fn []
                               (let [val @value
@@ -47,13 +55,19 @@
                                                        (fn? val) true ;always show src for functions
                                                        (not val) true
                                                        :else false)]
-                                [:div {:style {:width "100%" :height "100%"}}
+                                [:div {:key id :class-name "cell" :style (c/cell-style @cell)}
+                                 [:div {:class-name "cell-dragging"
+                                        :style (merge {:display (if (:dragging @cell) :block :none)}
+                                                      (c/cell-style {:width   (:drag-width @cell)
+                                                                     :height  (:drag-height @cell)}))}]
                                  [:div {:class-name "cell-meta"}
+                                  [c/c-cell-size cell]
                                   [c/c-cell-id id]
-                                  [:span
-                                   (if (not show-editor?)
-                                     [:span {:key      "formula" :class-name "show-formula"
-                                             :on-click show-editor} "source"])]]
+                                  (if (not show-editor?)
+                                    [:span {:key      "formula" :class-name "show-formula"
+                                            :on-click show-editor} "source"])
+
+                                  ]
 
                                  (cond show-editor?
                                        [:div {:class-name "cell-source" :key "source"
@@ -77,11 +91,13 @@
 
 (defn app []
   [:div
+   {:on-mouse-move mouse-event!
+    :on-mouse-down mouse-event!
+    :on-mouse-up mouse-event!}
    [c/c-docs]
-   [:div {:key "cells" :class-name "cells"}
-    (for [id (keys @state/cells)] [:div {:key id :class-name "cell"} [cell-view id]])
-    [c/c-new-cell]]
-   ])
+   (reduce into [:div {:key "cells" :class-name "cells"}]
+           [(for [id @state/cell-order] [cell-view id])
+            [[c/c-new-cell (c/cell-style {:width 1 :height 1})]]])])
 
 (r/render-component [app] (.getElementById js/document "app"))
 

@@ -25,18 +25,20 @@
   (find-replace source #(= old-symbol (z/sexpr %))
                 #(do new-symbol)))
 
-(defn rename-symbol [old-symbol new-symbol new-cell-fn]
+(defn rename-symbol [old-symbol new-symbol new-cell-fn kill-cell-fn]
   (let [all-vars (set (flatten [(keys @state/cells)
                                 (keys (ns-interns 'cljs.core))
                                 (keys (ns-interns 'cljs.user))
                                 (keys (ns-interns 'cells.cell-helpers))]))]
+
+    (prn old-symbol new-symbol (= old-symbol new-symbol))
 
     (when (and
             (not= old-symbol new-symbol)
             (not (all-vars new-symbol)))
       (new-cell-fn new-symbol @(get @state/cells old-symbol))
       (doseq [[_ src-atom] @state/cells]
-        (reset! src-atom (replace-symbol @src-atom old-symbol new-symbol)))
+        (swap! src-atom update :source #(replace-symbol % old-symbol new-symbol)))
 
-      (swap! state/cells dissoc old-symbol)
+      ; kill cell
       )))

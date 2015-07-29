@@ -12,19 +12,19 @@ $blue = #00A4FF
   margin 15px
 
 .cell
-  width 250px
-  height 120px
-  margin 15px
-  display inline-block
+  margin 15px 15px 0 15px
+  display flex
+  flex-direction column
   position relative
   cursor text
+  transition all 0.2s ease-in
+  
   // overflow hidden
 
+
 .cell-source, .cell-value, .cell-as-html
-  width 100%
-  height 100%
-  //border 15px solid #eee
   display flex
+  flex 1
   box-sizing border-box
 
 .cell-id
@@ -53,13 +53,40 @@ $blue = #00A4FF
 
 .cm-s-3024-day.CodeMirror
   background white
+  background #f9f9f9
   
+.cell-size
+  position absolute
+  z-index 1
+  bottom 5px
+  right 5px
+  width: 0
+  height: 0
+  border-style: solid
+  border-width: 0 0 20px 20px
+  border-color: transparent transparent rgba(0, 0, 0, 0.2) transparent
+  display none
+  &:hover
+    border-color transparent transparent rgba(0, 0, 0, 0.4) transparent 
+    cursor nwse-resize
+.cell:hover
+  .cell-size
+    display block
+  
+.cell-dragging
+  z-index 2
+  background rgba(0,0,0,0.1)
+  position absolute
+  margin-top 15px
 
 .cell-meta
   font-size: 12px
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif
-  height 20px
+  height 15px
   margin-bottom 4px
+  display flex
+  line-height 15px
+  
   
 .cell-as-html
   position relative

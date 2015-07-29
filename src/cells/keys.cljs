@@ -22,8 +22,7 @@
     (swap! actions assoc label func)))
 
 (register "ctrl+r" #(when-let [id @state/current-cell]
-                     (let [source @(get @state/cells id)]
-                       (run-cell! id source))))
+                     (run-cell! id)))
 
 (defonce _
          (goog.events/listen handler goog.ui.KeyboardShortcutHandler.EventType.SHORTCUT_TRIGGERED key-event))

@@ -15,24 +15,39 @@
 
 (defn little-pony-name []
   (-> little-pony-names shuffle first symbol))
-
 (def new-name little-pony-name)
+
+(defn make-id [id-candidate]
+  (cond
+    (number? id-candidate) (symbol (str state/number-prefix id-candidate))
+    (nil? id-candidate) (new-name)
+    (get @cells id-candidate) (new-name)
+    :else id-candidate))
+
+(def blank-cell {:source ""
+                 :width 1
+                 :height 1})
 
 (defn new-cell
   ([] (new-cell (new-name) ""))
   ([source] (new-cell (new-name) source))
   ([id source]
    (go
-     (let [id (cond
-                (number? id) (symbol (str state/number-prefix id))
-                (nil? id) (new-name)
-                (get @cells id) (new-name)
-                :else id)]
-       (swap! cells assoc id (r/atom source))
+     (let [id (make-id id)
+           cell (if (map? source) source (merge blank-cell {:source source}))]
+       (swap! cells assoc id (r/atom cell))
+       (swap! state/cell-order conj id)
        (if-not (get values id) ;may already exist if another cell is listening
          (swap! values assoc id (r/atom nil)))
        (<! (run-cell! id))
        id))))
+
+(defn kill-cell [id]
+  (swap! state/cells dissoc id)
+  (swap! state/cell-order #(remove #{id} %)))
+
+(defn replace-cell [old new]
+  (prn "replacing cell..."))
 
 (def html #(with-meta % {:hiccup true}))
 
@@ -42,11 +57,8 @@
 (defn coerce-id [id]
   (if (number? id) (symbol (str state/number-prefix id)) id))
 
-
 (defn get-val [id]
   (aget js/window "cljs" "user" (name id)))
-
-
 
 (defn interval
   ([f] (interval f 500))
