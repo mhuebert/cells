@@ -6,10 +6,9 @@
             ))
 
 (def mouse-chan (chan 1))
-(def mouse-events (pub mouse-chan #(-> % .-type keyword)))
+(def window-mouse-events (pub mouse-chan #(-> % .-type keyword)))
 (defn mouse-event! [e]
   (if (aget e "persist") (.persist e))                      ; otherwise `e` will be empty after we put it on the channel
-  ;(prn (.-type e))
   (put! mouse-chan e)
   nil)
 

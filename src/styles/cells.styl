@@ -5,6 +5,10 @@
 $pink = #FF00C3
 $blue = #00A4FF
 
+#app
+  display: flex
+  flex-direction: column
+  flex: 1
 .cells
   display flex
   flex-wrap wrap
@@ -73,17 +77,19 @@ $blue = #00A4FF
   .cell-size
     display block
   
-.cell-dragging
+.cell-drag-shadow
   z-index 2
   background rgba(0,0,0,0.1)
   position absolute
-  margin-top 15px
+  margin-top 20px
+  display none
+  cursor nwse-resize
 
 .cell-meta
   font-size: 12px
   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif
   height 15px
-  margin-bottom 4px
+  margin-bottom 5px
   display flex
   line-height 15px
   

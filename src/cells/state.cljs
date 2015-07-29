@@ -11,7 +11,7 @@
                       :compiled-source {}}))
 
 (def number-prefix "")
-(def demo-cells ["6"
+(def demo-cells ["" ""] #_["6"
                  "(+ 3 a)"
                  "(+ a b)"
                  "(fn[x](+ x 1))"

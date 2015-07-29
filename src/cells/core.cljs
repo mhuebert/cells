@@ -4,12 +4,14 @@
   (:require
     [cells.js] [cells.events] [cljs.user]
     [cells.state :as state]
+    [goog.events :as events]
     [reagent.core :as r]
     [cells.events :refer [mouse-event!]]
     [cells.components :as c]
     [cells.cell-helpers :refer [new-cell alphabet-name]]
     [cells.timing :refer [run-cell!]]
-    [cljs-cm-editor.core :refer [cm-editor cm-editor-static focus-last-editor]]))
+    [cljs-cm-editor.core :refer [cm-editor cm-editor-static focus-last-editor]])
+  (:import goog.events.EventType))
 
 (enable-console-print!)
 
@@ -56,18 +58,14 @@
                                                        (not val) true
                                                        :else false)]
                                 [:div {:key id :class-name "cell" :style (c/cell-style @cell)}
-                                 [:div {:class-name "cell-dragging"
-                                        :style (merge {:display (if (:dragging @cell) :block :none)}
-                                                      (c/cell-style {:width   (:drag-width @cell)
-                                                                     :height  (:drag-height @cell)}))}]
+                                 [:div {:class-name "cell-drag-shadow"
+                                         :style  (:drag-style @cell)}]
                                  [:div {:class-name "cell-meta"}
                                   [c/c-cell-size cell]
                                   [c/c-cell-id id]
                                   (if (not show-editor?)
                                     [:span {:key      "formula" :class-name "show-formula"
-                                            :on-click show-editor} "source"])
-
-                                  ]
+                                            :on-click show-editor} "source"])]
 
                                  (cond show-editor?
                                        [:div {:class-name "cell-source" :key "source"
@@ -91,9 +89,7 @@
 
 (defn app []
   [:div
-   {:on-mouse-move mouse-event!
-    :on-mouse-down mouse-event!
-    :on-mouse-up mouse-event!}
+
    [c/c-docs]
    (reduce into [:div {:key "cells" :class-name "cells"}]
            [(for [id @state/cell-order] [cell-view id])
@@ -101,3 +97,8 @@
 
 (r/render-component [app] (.getElementById js/document "app"))
 
+(do
+  (goog.events/listen js/window
+                      (clj->js [goog.events.EventType.MOUSEMOVE
+                                goog.events.EventType.MOUSEDOWN
+                                goog.events.EventType.MOUSEUP]) mouse-event!))

@@ -1,9 +1,9 @@
 (ns cells.components
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
+  (:require-macros [cljs.core.async.macros :refer [alt! go go-loop]])
   (:require [reagent.core :as r]
-            [cells.state :as state]
+            [cells.state :as state :refer [x-unit y-unit]]
             [cljs.core.async :refer [put! chan <! buffer mult tap pub sub unsub close!]]
-            [cells.events :refer [listen mouse-events]]
+            [cells.events :refer [listen window-mouse-events]]
             [cells.cell-helpers :refer [new-cell kill-cell]]
             [cells.refactor.rename :refer [rename-symbol]]
             [cljs-cm-editor.core :refer [focus-last-editor]]))
@@ -27,46 +27,44 @@
   {:width  (-> width (* state/x-unit) (+ (* state/gap (dec width))))
    :height (-> height (* state/y-unit) (+ (* state/gap (dec height))) (+ 20))})
 
+
+
 (defn c-cell-size [cell]
-  (let [dragging (chan)
-        begin-drag-pos (atom [])
-        begin-drag-cell (atom {})
+  (let [drag-events (chan)
+        start-drag-state (atom {})
         mouse-down-handler (fn [e]
-                             (reset! begin-drag-pos [(.-pageX e) (.-pageY e)])
-                             (reset! begin-drag-cell @cell)
-                             (sub mouse-events :mousemove dragging)
-                             (sub mouse-events :mouseup dragging)
+                             (reset! start-drag-state
+                                     {:start-width (:width @cell)
+                                      :start-height (:height @cell)
+                                      :x1 (.-clientX e)
+                                      :y1 (.-clientY e)})
+                             (sub window-mouse-events :mousemove drag-events)
+                             (sub window-mouse-events :mouseup drag-events)
                              (.preventDefault e))
         end-drag (fn []
-                   (unsub mouse-events :mousemove dragging)
-                   (unsub mouse-events :mouseup dragging)
-                   (swap! cell merge {:dragging false})
-                   (swap! cell dissoc :drag-width :drag-height))]
+                   (unsub window-mouse-events :mousemove drag-events)
+                   (unsub window-mouse-events :mouseup drag-events)
+                   (swap! cell dissoc :drag-style))]
 
     (go-loop []
-             (let [e (<! dragging)]
-               (if (= (.-type e) "mouseup")
+             (let [e (<! drag-events)]
+               (if (= "mouseup" (.-type e))
                  (end-drag)
-                 (let [{:keys [width height]} @begin-drag-cell
-                       [x1 y1] @begin-drag-pos
-                       [x2 y2] [(.-pageX e) (.-pageY e)]
+                 (let [{:keys [start-width start-height x1 y1]} @start-drag-state
+                       [x2 y2] [(.-clientX e) (.-clientY e)]
                        [dx dy] [(- x2 x1) (- y2 y1)]]
                    (swap! cell merge
-                          {:dragging    true
-                           :drag-width  (+ width (/ dx state/x-unit))
-                           :width       (max 1 (Math.round (+ width (/ dx state/x-unit))))
-                           :drag-height (+ height (/ dy state/y-unit))
-                           :height (max 1 (Math.round (+ height (/ dy state/y-unit))))})
-                   ))
+                          {:drag-style {:height  (* y-unit (max 0 (+ start-height (/ dy y-unit))))
+                                        :width   (* x-unit (max 0 (+ start-width (/ dx x-unit))))
+                                        :display :block}
+                           :width      (max 1 (Math.round (+ start-width (/ dx state/x-unit))))
+                           :height     (max 1 (Math.round (+ start-height (/ dy y-unit))))})))
                (recur)))
+
     (fn [cell]
       [:div {:class-name    "cell-size"
-             :on-mouse-down mouse-down-handler
-             :on-mouse-up   #(do
-                              (prn "mouseup")
-                              (unsub mouse-events :mousemove dragging))
-             ;:on-click      stop
-             }])))
+             :style {:display (if (:drag-style @cell) :none :block)}
+             :on-mouse-down mouse-down-handler}])))
 
 (defn c-docs []
   [:div {:style {:font-family "monospace" :margin 30}}
