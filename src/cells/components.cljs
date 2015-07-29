@@ -1,7 +1,7 @@
 (ns cells.components
   (:require-macros [cljs.core.async.macros :refer [alt! go go-loop]])
   (:require [reagent.core :as r]
-            [cells.state :as state :refer [x-unit y-unit]]
+            [cells.state :as state :refer [x-unit y-unit gap]]
             [cljs.core.async :refer [put! chan <! buffer mult tap pub sub unsub close!]]
             [cells.events :refer [listen window-mouse-events]]
             [cells.cell-helpers :refer [new-cell kill-cell]]
@@ -27,15 +27,12 @@
   {:width  (-> width (* state/x-unit) (+ (* state/gap (dec width))))
    :height (-> height (* state/y-unit) (+ (* state/gap (dec height))) (+ 20))})
 
-
-
 (defn c-cell-size [cell]
   (let [drag-events (chan)
         start-drag-state (atom {})
         mouse-down-handler (fn [e]
                              (reset! start-drag-state
-                                     {:start-width (:width @cell)
-                                      :start-height (:height @cell)
+                                     {:start-style (cell-style @cell)
                                       :x1 (.-clientX e)
                                       :y1 (.-clientY e)})
                              (sub window-mouse-events :mousemove drag-events)
@@ -50,20 +47,22 @@
              (let [e (<! drag-events)]
                (if (= "mouseup" (.-type e))
                  (end-drag)
-                 (let [{:keys [start-width start-height x1 y1]} @start-drag-state
+                 (let [{:keys [x1 y1 start-style]} @start-drag-state
+                       {:keys [width height]} start-style
                        [x2 y2] [(.-clientX e) (.-clientY e)]
-                       [dx dy] [(- x2 x1) (- y2 y1)]]
+                       [dx dy] [(- x2 x1) (- y2 y1)]
+                       shadow-w (-> width (+ dx) (max 10))
+                       shadow-h (-> height (+ dy) (max 10))]
                    (swap! cell merge
-                          {:drag-style {:height  (* y-unit (max 0 (+ start-height (/ dy y-unit))))
-                                        :width   (* x-unit (max 0 (+ start-width (/ dx x-unit))))
-                                        :display :block}
-                           :width      (max 1 (Math.round (+ start-width (/ dx state/x-unit))))
-                           :height     (max 1 (Math.round (+ start-height (/ dy y-unit))))})))
+                          {:width      (-> shadow-w (/ (+ x-unit gap)) Math.round (max 1))
+                           :height     (-> shadow-h (/ (+ y-unit gap)) Math.round (max 1))
+                           :drag-style {:width   shadow-w
+                                        :height  (- shadow-h 20)
+                                        :display :block}})))
                (recur)))
 
     (fn [cell]
       [:div {:class-name    "cell-size"
-             :style {:display (if (:drag-style @cell) :none :block)}
              :on-mouse-down mouse-down-handler}])))
 
 (defn c-docs []

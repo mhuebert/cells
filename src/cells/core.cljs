@@ -27,12 +27,6 @@
                       :matchBrackets true
                       :mode "clojureDeref"})
 
-
-
-
-
-
-
 (defn cell-view
   [id]
   (let [editor-state (r/atom {:editing? false})
@@ -49,7 +43,6 @@
     (r/create-class
       {:component-did-mount (fn [this]
                               (swap! state/index assoc-in [:cell-views id] this)) ; register this view with global cell index
-
        :show-editor         show-editor
        :reagent-render      (fn []
                               (let [val @value
