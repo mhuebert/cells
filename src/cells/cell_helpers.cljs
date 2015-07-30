@@ -101,10 +101,9 @@
 (defn rename-symbol [old-symbol new-symbol]
   (go
     (let [all-vars (set (flatten [(keys @state/cells)
-                                  (map #(some-> % demunge symbol) (.keys js/Object (.. js/window -cljs -core))) ;calling (ns-interns 'cljs.core) causes compiler error
+                                  (keys (ns-interns 'cljs.core))
                                   (keys (ns-interns 'cells.cell-helpers))]))
           order (.indexOf (to-array @state/cell-order) old-symbol)]
-
 
       (when (and new-symbol (not= old-symbol new-symbol) (not (all-vars new-symbol)))
 
