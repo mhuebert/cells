@@ -28,9 +28,9 @@
 
 (defn c-cell-size [cell]
   (let [drag-events (chan)
-        start-drag-state (atom {})
+        drag-start-state (atom {})
         mouse-down-handler (fn [e]
-                             (reset! start-drag-state
+                             (reset! drag-start-state
                                      {:start-style (cell-style @cell)
                                       :x1 (.-clientX e)
                                       :y1 (.-clientY e)})
@@ -46,7 +46,7 @@
              (let [e (<! drag-events)]
                (if (= "mouseup" (.-type e))
                  (end-drag)
-                 (let [{:keys [x1 y1 start-style]} @start-drag-state
+                 (let [{:keys [x1 y1 start-style]} @drag-start-state
                        {:keys [width height]} start-style
                        [x2 y2] [(.-clientX e) (.-clientY e)]
                        [dx dy] [(- x2 x1) (- y2 y1)]

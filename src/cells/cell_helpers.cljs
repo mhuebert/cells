@@ -39,7 +39,7 @@
                        :else blank-cell)
            cell-atom (r/atom cell-data)]
 
-       (swap! cells assoc id cell-atom)                     ;cell map
+       (swap! cells assoc id cell-atom)                     ;canonical cell map
        (if-not (get values id)                              ;cell value-cache
          (swap! values assoc id (r/atom (:initial-val data)))
          (reset! (get @values id) (:initial-val data)))
@@ -64,7 +64,7 @@
   (swap! state/cells dissoc id)
   (doseq [[_ a] @state/cells] (remove-watch a id))          ;remove watches
   (doseq [[_ a] @state/values] (remove-watch a id))
-  (clear-intervals! id))                            ;cell map
+  (clear-intervals! id))
 
 (def html #(with-meta % {:hiccup true}))
 
