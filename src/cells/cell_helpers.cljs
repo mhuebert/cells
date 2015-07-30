@@ -8,6 +8,7 @@
             [reagent.ratom :refer [dispose!]]
             [cljs.reader :refer [read-string]]
             [cells.compiler]
+            [cells.refactor.rename :refer [replace-symbol]]
             [cells.timing :refer [clear-intervals! run-cell!]]
             [cells.state :as state :refer [cells values]]))
 
@@ -18,60 +19,72 @@
 (def new-name little-pony-name)
 
 (defn make-id [id-candidate]
-  (cond
-    (number? id-candidate) (symbol (str state/number-prefix id-candidate))
-    (nil? id-candidate) (new-name)
-    (get @cells id-candidate) (new-name)
-    :else id-candidate))
+  (if (or (nil? id-candidate) (get @cells id-candidate))
+    (new-name)
+    id-candidate))
 
-(def blank-cell {:source ""
+(def blank-cell {:source nil
                  :width 1
                  :height 1})
 
-(defn new-cell
-  ([] (new-cell (new-name) ""))
-  ([source] (new-cell (new-name) source))
-  ([id source]
+(defn new-cell!
+  ([] (new-cell! (new-name) nil))
+  ([data] (new-cell! (new-name) data))
+  ([id data]
    (go
      (let [id (make-id id)
-           cell (if (map? source) source (merge blank-cell {:source source}))]
-       (swap! cells assoc id (r/atom cell))
-       (swap! state/cell-order conj id)
-       (if-not (get values id) ;may already exist if another cell is listening
-         (swap! values assoc id (r/atom nil)))
-       (<! (run-cell! id))
+           cell-data (cond
+                       (map? data) (merge blank-cell data)
+                       (string? data) (merge blank-cell {:source data})
+                       :else blank-cell)
+           cell-atom (r/atom cell-data)]
+
+       (swap! cells assoc id cell-atom)                     ;cell map
+       (if-not (get values id)                              ;cell value-cache
+         (swap! values assoc id (r/atom (:initial-val data)))
+         (reset! (get @values id) (:initial-val data)))
+       (<! (eval/def-cell id))
+       (add-watch cell-atom :update-source                  ;watch source to recompile
+                  (fn [_ _ old new]
+                    (if (and (not= (:source old) (:source new))
+                             (not= id @state/current-cell))
+                      (run-cell! id))))
+       (<! (run-cell! id))                                  ;run the cell now
+       (if-let [order (:order cell-data)]
+         (do
+           (swap! state/cell-order #(let [[before after] (split-at order %)]
+                                       (vec (concat before [id] after)))))
+         (swap! state/cell-order conj id))                  ;cell order
        id))))
 
-(defn kill-cell [id]
+(defn kill-cell!
+  [id]
+  (swap! state/cell-order #(vec (remove (fn [s] (= s id)) %)))    ; cell order
+  (swap! state/values dissoc id)                            ;cell value-cache
   (swap! state/cells dissoc id)
-  (swap! state/cell-order #(remove #{id} %)))
-
-(defn replace-cell [old new]
-  (prn "replacing cell..."))
+  (doseq [[_ a] @state/cells] (remove-watch a id))          ;remove watches
+  (doseq [[_ a] @state/values] (remove-watch a id))
+  (clear-intervals! id))                            ;cell map
 
 (def html #(with-meta % {:hiccup true}))
 
 (defn value [id]
   @(get @values id))
 
-(defn coerce-id [id]
-  (if (number? id) (symbol (str state/number-prefix id)) id))
-
-(defn get-val [id]
-  (aget js/window "cljs" "user" (name id)))
+(defn get-val-dirty [id]
+  (aget js/window "cljs" "user" (cljs.core/munge (name id))))
 
 (defn interval
   ([f] (interval f 500))
   ([n f]
    (let [id cljs.user/self-id
-         exec #(binding [cljs.user/self (get-val id)]
+         exec #(binding [cljs.user/self (get-val-dirty id)]
                 (reset! (get @values id) (f cljs.user/self))
                 (eval/def-cell id))]
      (clear-intervals! id)
      (let [interval-id (js/setInterval exec (max 24 n))]
        (swap! state/index update-in [:interval-ids id] #(conj (or % []) interval-id)))
-     (f (get-val id)))))
-
+     (f (get-val-dirty id)))))
 
 (defn get-json [url]
   (go
@@ -85,6 +98,30 @@
                 )
       c)))
 
+(defn rename-symbol [old-symbol new-symbol new-cell! kill-cell!]
+  (go
+    (let [all-vars (set (flatten [(keys @state/cells)
+                                  (map (comp demunge symbol) (.keys js/Object (.. js/window -cljs -core))) ;calling (ns-interns 'cljs.core) causes compiler error
+                                  (keys (ns-interns 'cells.cell-helpers))]))
+          order (.indexOf (to-array @state/cell-order) old-symbol)]
+
+
+      (when (and (not= old-symbol new-symbol) (not (all-vars new-symbol)))
+
+        (swap! state/cell-order #(vec (remove (fn [s] (= s old-symbol)) @state/cell-order))) ;remove from layout
+        (r/flush)
+
+        (swap! values assoc new-symbol (r/atom (value old-symbol)))
+        (<! (eval/def-cell new-symbol))
+        (<! (new-cell! new-symbol (merge
+                                      @(get @state/cells old-symbol)
+                                      {:order order
+                                       :initial-val (value old-symbol)})))
+
+        (kill-cell! old-symbol)
+        (doseq [[_ src-atom] @state/cells]
+          (swap! src-atom update :source #(replace-symbol % old-symbol new-symbol)))))))
+
 ; put get-json in user namespace, declare it, try it
 
 
@@ -95,15 +132,14 @@
 
 #_(defn source!
     ([id val]
-     (let [id (coerce-id id)]
-       (reset! (get @cells id) (str val))
-       nil)))
+     (reset! (get @cells id) (str val))
+     nil))
 
-#_(defn value! [id val]
-    (go (let [id (coerce-id id)]
-          (reset! (get @values id) val)
-          (<! (eval/def-cell id))
-          val)))
+(defn value! [id val]
+  (go
+    (reset! (get @values id) val)
+    (<! (eval/def-cell id))
+    val))
 
 (defn alphabet-name []
   (let [char-index-start 97

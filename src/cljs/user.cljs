@@ -8,11 +8,11 @@
 (defonce value helpers/value)
 (defonce interval helpers/interval)
 (defonce html helpers/html)
-(defonce new-cell helpers/new-cell)
+(defonce new-cell helpers/new-cell!)
 (defonce values state/values)
-
+(defonce value! helpers/value!)
 
 
 
 ;(def source! helpers/source!)
-;(def value! helpers/value!)
+

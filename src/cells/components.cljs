@@ -4,8 +4,7 @@
             [cells.state :as state :refer [x-unit y-unit gap]]
             [cljs.core.async :refer [put! chan <! buffer mult tap pub sub unsub close!]]
             [cells.events :refer [listen window-mouse-events]]
-            [cells.cell-helpers :refer [new-cell kill-cell]]
-            [cells.refactor.rename :refer [rename-symbol]]
+            [cells.cell-helpers :refer [new-cell! kill-cell! rename-symbol]]
             [cljs-cm-editor.core :refer [focus-last-editor]]))
 
 (defn c-error [content]
@@ -78,7 +77,7 @@
   (let [n (r/atom (str (name id)))
         focused (r/atom false)
         self (r/current-component)
-        save (fn [] (rename-symbol id (symbol @n) new-cell kill-cell))
+        save (fn [] (rename-symbol id (symbol @n) new-cell! kill-cell!))
         handle-change (fn [e]                               ; allowed chars in symbols: http://stackoverflow.com/a/3961674/3421050
                         (reset! n (clojure.string/replace (-> e .-target .-value) #"[^\w-!?&\d+*_:]+" "-")))]
     (fn [id]
@@ -90,11 +89,11 @@
                           (js/setTimeout #(-> self .getDOMNode (.setSelectionRange 0 999)) 10))
           :on-blur      (fn [] (save) (reset! focused nil))
           :on-key-press #(if (= 13 (.-which %)) (save))
-          :style        {:width (+ 3 (* 7.80127 (count display-id)))}
+          :style        {:width (+ 3 (* 8.40137 (count display-id)))}
           :value        display-id}]))))
 
 (defn c-new-cell [styles]
-  [:a {:on-click   #(do (new-cell) (js/setTimeout focus-last-editor 200))
+  [:a {:on-click   #(do (new-cell!) (js/setTimeout focus-last-editor 200))
        :class-name "touch-btn cell"
        :key        "new-cell"
        :style styles}

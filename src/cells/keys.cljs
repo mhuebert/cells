@@ -21,7 +21,7 @@
     (.registerShortcut handler label shortcut)
     (swap! actions assoc label func)))
 
-(register "ctrl+r" #(when-let [id @state/current-cell]
+(register "ctrl+enter" #(when-let [id @state/current-cell]
                      (run-cell! id)))
 
 (defonce _

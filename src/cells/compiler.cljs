@@ -1,13 +1,9 @@
 (ns cells.compiler
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]]
-                   [reagent.ratom :refer [run!]])
-  (:require [clojure.string :refer [join]]
-            [cljs.core.async :refer [put! chan <! >!]]
+  (:require [cljs.core.async :refer [put! chan <!]]
             [cljs.reader :refer [read-string]]
             [cljs.js :as cljs]
-            [cells.refactor.core :as refactor]
-            [cells.state :as state :refer [index self]]
-            [reagent.core :as r]))
+            [cells.state :refer [index self]]))
+
 (enable-console-print!)
 
 (def compiler-state (cljs/empty-state))
@@ -40,7 +36,7 @@
 
 (defonce _
          (eval-str "
-         (declare interval html value values new-cell)
+         (declare interval html value values new-cell value!)
          (def ^:dynamic self)
          (def ^:dynamic self-id)
          "))
@@ -59,10 +55,9 @@
 
 (defn compile-cell-fn [id source]
   (swap! index assoc-in [:compiled-source id] source)
-  (eval-str (str "(let [compiled-fn (fn [] " (refactor/pre-compile source) ")]
+  (eval-str (str "(let [compiled-fn (fn [] " source ")]
           (def _" id " compiled-fn)
           compiled-fn)")))
-
 
 
 

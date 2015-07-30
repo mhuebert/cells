@@ -23,9 +23,9 @@
 (defn run-cell! [id]
   (go
     (let [source (-> @state/cells (get id) deref :source)
-          compiled-source (get-in @state/index [:compiled-source id])]
-      (if-not (= source compiled-source)
-        (<! (eval/compile-cell-fn id source)))
+          compiled-source (or (get-in @state/index [:compiled-source id]) (rand))]
       (clear-intervals! id)
+      (when (not= source compiled-source)
+        (<! (eval/compile-cell-fn id source)))
       (<! (eval/eval-def-cell id))
       (set-watches! id))))

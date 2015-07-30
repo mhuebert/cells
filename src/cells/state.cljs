@@ -11,11 +11,8 @@
                       :compiled-source {}}))
 
 (def number-prefix "")
-(def demo-cells ["" ""] #_["6"
-                 "(+ 3 a)"
-                 "(+ a b)"
-                 "(fn[x](+ x 1))"
-                 "(d 4)"])
+(def demo-cells [{:source "(interval 100 #(apply str (take (+ (count self) (- (rand-int 7) 3)) (repeat \".\"))))"
+                  :initial-val "................................................................."}])
 
 (def x-unit 224)
 (def y-unit 126)
