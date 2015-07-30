@@ -98,15 +98,15 @@
                 )
       c)))
 
-(defn rename-symbol [old-symbol new-symbol new-cell! kill-cell!]
+(defn rename-symbol [old-symbol new-symbol]
   (go
     (let [all-vars (set (flatten [(keys @state/cells)
-                                  (map (comp demunge symbol) (.keys js/Object (.. js/window -cljs -core))) ;calling (ns-interns 'cljs.core) causes compiler error
+                                  (map #(some-> % demunge symbol) (.keys js/Object (.. js/window -cljs -core))) ;calling (ns-interns 'cljs.core) causes compiler error
                                   (keys (ns-interns 'cells.cell-helpers))]))
           order (.indexOf (to-array @state/cell-order) old-symbol)]
 
 
-      (when (and (not= old-symbol new-symbol) (not (all-vars new-symbol)))
+      (when (and new-symbol (not= old-symbol new-symbol) (not (all-vars new-symbol)))
 
         (swap! state/cell-order #(vec (remove (fn [s] (= s old-symbol)) @state/cell-order))) ;remove from layout
         (r/flush)
