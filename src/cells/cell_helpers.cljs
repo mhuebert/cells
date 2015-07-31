@@ -78,7 +78,8 @@
   ([f] (interval f 500))
   ([n f]
    (let [id cljs.user/self-id
-         exec #(binding [cljs.user/self (get-val-dirty id)]
+         exec #(binding [cljs.user/self (get-val-dirty id)
+                         cljs.user/self-id id]
                 (reset! (get @values id) (f cljs.user/self))
                 (eval/def-cell id))]
      (clear-intervals! id)

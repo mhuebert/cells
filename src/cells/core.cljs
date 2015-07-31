@@ -1,6 +1,6 @@
 (ns cells.core
   ^:figwheel-always
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
+  (:require-macros [cljs.core.async.macros :refer [go]])
   (:require
     [cells.js] [cells.events] [cljs.user]
     [cells.state :as state]
@@ -62,8 +62,9 @@
                 [cm-editor source (merge @editor-state codemirror-opts {:id id})]]
 
                (some-> @value meta :hiccup)
-               [:div {:class-name "cell-as-html" :key "as-html"}
-                @value]
+               (let [is-svg (= :svg (first @value))]
+                 [:div {:class-name              "cell-as-html" :key "as-html"}
+                  @value])
 
                :else
                [:div {:class-name "cell-value" :key "value"

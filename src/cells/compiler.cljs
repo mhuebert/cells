@@ -2,6 +2,7 @@
   (:require [cljs.core.async :refer [put! chan <!]]
             [cljs.reader :refer [read-string]]
             [cljs.js :as cljs]
+            [cljs.pprint :refer [pprint]]
             [cells.state :refer [index self]]))
 
 (enable-console-print!)
@@ -13,6 +14,17 @@
                        :context       :expr
                        :warnings      {:fn-deprecated false}
                        :def-emits-var true})
+
+
+
+(cljs/eval (cljs/empty-state)
+           '(def x 1)
+           {:eval cljs/js-eval
+            :context :expr
+            :def-emits-var true
+            :ns 'cells.core
+            }
+           #(pprint %))
 
 (defn compiler-cb [c]
   (fn [{:keys [value error]}]
@@ -42,8 +54,7 @@
          "))
 
 (defn def-cell [id]
-  (binding [*print-dup* true]
-    (eval `(def ~id (~'value '~id)))))
+  (eval `(def ~id (~'value '~id))))
 
 (defn eval-def-cell [id]
   (eval `(binding [~'self-id '~id
