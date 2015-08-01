@@ -109,7 +109,7 @@
 
 (defn docs []
   [:div {:style {:font-family "monospace" :margin 30}}
-   #_[c-doc "value!" ["id" "value"] "set cell value"]
+   [c-doc "value!" ["'id" "value"] "set cell value"]
    #_[c-doc "source!" ["id" "string"] "set cell source"]
    [c-doc "interval" ["n" "fn"] "call fn every n ms"]
    [c-doc [:span {:style {:font-style "italic"}} "self"] [] "current cell value"]

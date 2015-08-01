@@ -13,22 +13,21 @@
 
 (defn compiler-cb [c]
   (fn [{:keys [value error]}]
-    (if error (do (prn "compiler error" error)
-                  (put! c (js/Error error)))
+    (if error (do (put! c (js/Error error)))
               (put! c (or value false)))))
 
 (defn eval [forms]
   (let [c (chan)]
     (try
       (cljs/eval compiler-state forms compiler-options (compiler-cb c))
-      (catch js/Error e (.log js/console "compile error " e)))
+      (catch js/Error e (.log js/console "compile error " e forms)))
     c))
 
 (defn eval-str [source]
   (let [c (chan)]
     (try
       (cljs/eval-str compiler-state source nil compiler-options (compiler-cb c))
-      (catch js/Error e (.log js/console "compile error " e)))
+      (catch js/Error e (.log js/console "compile error " e source)))
     c))
 
 (defonce _
@@ -40,6 +39,9 @@
 
 (defn def-in-cljs-user [id value]
   (eval `(def ~id ~value)))
+
+(defn def-value-in-cljs-user [id]
+  (eval `(def ~id (~'value '~id))))
 
 (defn compile-as-fn [source]
   (eval-str (str "(fn[] " source " )")))

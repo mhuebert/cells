@@ -19,7 +19,8 @@
 
 (defonce _
          (go (doseq [s state/demo-cells]
-               (layout/add-cell-view! (<! (cells/new-cell! (cells/alphabet-name) s))))))
+               (layout/add-cell-view! (<! (cells/new-cell! (merge {:id (cells/alphabet-name)} s)))
+                                      s))))
 
 (defn app []
   (fn []

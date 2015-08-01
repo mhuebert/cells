@@ -3,9 +3,8 @@
             [cells.cells :as cells]
             [cells.state :as state]))
 
-(defonce ^:dynamic self nil)
-(defonce ^:dynamic self-id nil)
-
+(def ^:dynamic self-id nil)
+(def ^:dynamic self nil)
 (defonce value helpers/value)
 (defonce interval cells/interval)
 (defonce html helpers/html)

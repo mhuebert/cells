@@ -2,11 +2,11 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cells.state :as state :refer [layout sources values compiled-fns]]
             [cljs.core.async :refer [put! chan <! >!]]
-            [cells.compiler :refer [def-in-cljs-user declare-in-cljs-user compile-as-fn]]
+            [cells.compiler :refer [def-in-cljs-user declare-in-cljs-user compile-as-fn def-value-in-cljs-user]]
             [cells.refactor.rename :refer [replace-symbol]]
             [cells.refactor.find :refer [find-reactive-symbols]]
             [reagent.core :as r]
-            [cljs.user]))
+            ))
 
 (declare alphabet-name number-name little-pony-names new-name make-id update-subs! clear-intervals!)
 
@@ -15,16 +15,16 @@
   ([data] (new-cell! (new-name) data))
   ([id data]
    (go
-     (let [id (make-id id)
+     (let [id (if-let [id (:id data)] (make-id id) (new-name))
            source-atom (r/atom nil)
            compiled-fn-atom (r/atom (js* "function(){}"))
            value-atom (r/atom (:initial-val data))]
 
-       (<! (def-in-cljs-user id (:initial-val data)))
-
        (swap! sources assoc id source-atom)
        (swap! compiled-fns assoc id compiled-fn-atom)
        (swap! values assoc id value-atom)
+
+       (<! (def-value-in-cljs-user id))
 
        (add-watch source-atom :self-watch
                   (fn [_ _ _ new]
@@ -47,12 +47,13 @@
                   (fn [_ _ old new]
                     (go
                       (when (not= old new)
-                        (<! (def-in-cljs-user id new))
+                        (<! (def-value-in-cljs-user id))
                         (doseq [s (get @state/dependents id)]
                           (clear-intervals! s)
                           (binding [cljs.user/self @(get @values s)
                                     cljs.user/self-id s]
-                            (reset! (get @values s) (@(get @compiled-fns s)))))))))
+                            (reset! (get @values s) (try (@(get @compiled-fns s))
+                                                         (catch js/Error e [:div {:class-name "cell-error"} (str e)])))))))))
 
        (reset! source-atom (:source data))                  ;this will start the reactions
        id))))
