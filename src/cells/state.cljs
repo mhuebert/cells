@@ -5,7 +5,6 @@
 ;persisted values
 (defonce sources (atom {}))
 (defonce values (atom {}))
-
 (defonce layout (r/atom {:settings {:x-unit 224
                                     :y-unit 126
                                     :gap    30}

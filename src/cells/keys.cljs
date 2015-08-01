@@ -3,7 +3,9 @@
             [goog.events]
             [cells.state :as state]))
 
-(defonce handler (new goog.ui.KeyboardShortcutHandler js/document))
+(defonce handler
+         (new goog.ui.KeyboardShortcutHandler js/document))
+
 (defonce actions (atom {}))
 
 (defn key-event [e]
@@ -20,7 +22,7 @@
     (.registerShortcut handler label shortcut)
     (swap! actions assoc label func)))
 
-#_(register "ctrl+enter" #(when-let [id @state/current-cell]
+(register "ctrl+enter" #(when-let [id @state/current-cell]
                      (compile-cell! id)))
 
 (defonce _

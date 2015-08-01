@@ -8,10 +8,8 @@
 
 (def compiler-state (cljs/empty-state))
 (def compiler-options {:eval          cljs/js-eval
-                       :load (fn [_ _])
-                       :context       :expr
-                       :warnings      {:fn-deprecated false}
-                       :def-emits-var true})
+                       :load          (fn [_ _])            ;TODO
+                       :context       :expr})
 
 (defn compiler-cb [c]
   (fn [{:keys [value error]}]
@@ -34,9 +32,8 @@
     c))
 
 (defonce _
-         (eval-str "
-         (declare interval html value values new-cell value!)
-         "))
+         (let [names ['interval 'html 'value 'values 'new-cell 'value!]]
+           (eval `(declare ~@names))))
 
 (defn declare-in-cljs-user [id]
   (eval `(declare ~id)))
@@ -45,7 +42,7 @@
   (eval `(def ~id ~value)))
 
 (defn compile-as-fn [source]
-  (eval-str (str "(fn [] " source ")")))
+  (eval-str (str "(fn[] " source " )")))
 
 
 
