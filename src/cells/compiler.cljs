@@ -6,13 +6,8 @@
 
 (enable-console-print!)
 
-
-
-
-
 (def compiler-state (cljs/empty-state))
 (def compiler-options {:eval          cljs/js-eval
-                       ;:verbose       true
                        :load (fn [_ _])
                        :context       :expr
                        :warnings      {:fn-deprecated false}

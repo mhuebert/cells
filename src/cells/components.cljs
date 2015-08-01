@@ -5,7 +5,7 @@
             [cells.layout :refer [add-cell-view!]]
             [cljs.core.async :refer [put! chan <! buffer mult tap pub sub unsub close!]]
             [cells.events :refer [listen window-mouse-events]]
-            [cells.cells :refer [new-cell! rename-symbol]]
+            [cells.cells :refer [new-cell! rename-symbol!]]
             [cells.editor :refer [cm-editor cm-editor-static]]))
 
 (declare cell-name cell-resize cell-style click-coords)
@@ -118,7 +118,7 @@
 (defn cell-name [id]
   (let [n (r/atom (str (name id)))
         self (r/current-component)
-        save #(rename-symbol id (symbol @n))
+        save #(rename-symbol! id (symbol @n))
         handle-change (fn [e]                               ; allowed chars in symbols: http://stackoverflow.com/a/3961674/3421050
                         (reset! n (clojure.string/replace (-> e .-target .-value) #"[^\w-!?&\d+*_:]+" "-")))]
     (r/create-class

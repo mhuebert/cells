@@ -5,34 +5,12 @@
             [cells.compiler :refer [def-in-cljs-user declare-in-cljs-user compile-as-fn]]
             [cells.refactor.rename :refer [replace-symbol]]
             [cells.refactor.find :refer [find-reactive-symbols]]
-
             [reagent.core :as r]))
 
-(declare alphabet-name number-name little-pony-names)
+(declare alphabet-name number-name little-pony-names new-name make-id update-subs! clear-intervals!)
 
 (def ^:dynamic self)
 (def ^:dynamic self-id)
-
-(defn little-pony-name []
-  (-> little-pony-names shuffle first symbol))
-(def new-name little-pony-name)
-
-(defn make-id [id-candidate]
-  (if (or (nil? id-candidate) (get @sources id-candidate))
-    (new-name)
-    id-candidate))
-
-(defn- update-values [m f & args]
-  (reduce (fn [r [k v]] (assoc r k (apply f v args))) {} m))
-
-(defn update-subs! [id]
-  (swap! state/dependents update-values #(disj % id))
-  (doseq [s (find-reactive-symbols (-> @state/sources (get id) deref))]
-    (swap! state/dependents update s #(conj (or % #{}) id))))
-
-(defn clear-intervals! [id]
-  (doseq [i (get @state/interval-ids id)] (js/clearInterval i))
-  (swap! state/interval-ids assoc id []))
 
 (defn new-cell!
   ([] (new-cell! (new-name) nil))
@@ -51,9 +29,9 @@
        (swap! values assoc id value-atom)
 
        (add-watch source-atom :self-watch
-                  (fn [_ _ old new]
+                  (fn [_ _ _ new]
                     (go
-                      (when (not= id @state/current-cell)   ;TODO fix editor cells to control when the source atom updates
+                      (when (not= id @state/current-cell)   ;TODO - layout should control when source atom updates
                         (let [f (<! (compile-as-fn new))]
                           (when (not= (.toString f) (.toString @compiled-fn-atom))
                             (reset! compiled-fn-atom f)))))))
@@ -76,8 +54,22 @@
                           (clear-intervals! s)
                           (reset! (get @values s) (@(get @compiled-fns s))))))))
 
-       (reset! source-atom (:source data))
+       (reset! source-atom (:source data))                  ;this will start the reactions
        id))))
+
+
+
+(defn- update-values [m f & args]
+  (reduce (fn [r [k v]] (assoc r k (apply f v args))) {} m))
+
+(defn update-subs! [id]
+  (swap! state/dependents update-values #(disj % id))
+  (doseq [s (find-reactive-symbols (-> @state/sources (get id) deref))]
+    (swap! state/dependents update s #(conj (or % #{}) id))))
+
+(defn clear-intervals! [id]
+  (doseq [i (get @state/interval-ids id)] (js/clearInterval i))
+  (swap! state/interval-ids assoc id []))
 
 (defn clear-dependents! [id]
   (swap! state/dependents update-values disj id))
@@ -104,7 +96,7 @@
        (swap! state/interval-ids update id #(conj (or % []) interval-id)))
      (f @value))))
 
-(defn rename-symbol [old-symbol new-symbol]
+(defn rename-symbol! [old-symbol new-symbol]
   (go
     (let [all-vars (set (flatten [(keys @sources)
                                   (keys (ns-interns 'cljs.core))
@@ -124,6 +116,12 @@
 
         (kill-cell! old-symbol)))))
 
+
+(defn make-id [id-candidate]
+  (if (or (nil? id-candidate) (get @sources id-candidate))
+    (new-name)
+    id-candidate))
+
 (defn alphabet-name []
   (let [char-index-start 97
         char-index-end 123]
@@ -134,6 +132,10 @@
                                            (if (= i char-index-end)
                                              (recur char-index-start (inc repetitions))
                                              (recur (inc i) repetitions)))))))
+
+(defn little-pony-name []
+  (-> little-pony-names shuffle first symbol))
+(def new-name little-pony-name)
 
 (defn number-name []
   (inc (count @state/sources)))
