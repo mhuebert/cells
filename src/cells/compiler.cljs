@@ -3,9 +3,13 @@
             [cljs.reader :refer [read-string]]
             [cljs.js :as cljs]
             [cljs.pprint :refer [pprint]]
-            [cells.state :refer [index self]]))
+            [cells.state :as state :refer [self]]))
 
 (enable-console-print!)
+
+
+
+
 
 (def compiler-state (cljs/empty-state))
 (def compiler-options {:eval          cljs/js-eval
@@ -14,17 +18,6 @@
                        :context       :expr
                        :warnings      {:fn-deprecated false}
                        :def-emits-var true})
-
-
-
-(cljs/eval (cljs/empty-state)
-           '(def x 1)
-           {:eval cljs/js-eval
-            :context :expr
-            :def-emits-var true
-            :ns 'cells.core
-            }
-           #(pprint %))
 
 (defn compiler-cb [c]
   (fn [{:keys [value error]}]
@@ -64,11 +57,11 @@
              (reset! (get @~'values '~id) res#)
              res#))))
 
-(defn compile-cell-fn [id source]
-  (swap! index assoc-in [:compiled-source id] source)
-  (eval-str (str "(let [compiled-fn (fn [] " source ")]
+(defn compile-cell-fn [id]
+  (let [source (-> @state/source (get id) deref)]
+    (eval-str (str "(let [compiled-fn (fn [] " source ")]
           (def _" id " compiled-fn)
-          compiled-fn)")))
+          compiled-fn)"))))
 
 
 

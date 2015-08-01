@@ -1,7 +1,7 @@
 (ns cells.components
   (:require-macros [cljs.core.async.macros :refer [alt! go go-loop]])
   (:require [reagent.core :as r]
-            [cells.state :as state :refer [x-unit y-unit gap]]
+            [cells.state :as state :refer [layout]]
             [cljs.core.async :refer [put! chan <! buffer mult tap pub sub unsub close!]]
             [cells.events :refer [listen window-mouse-events]]
             [cells.cell-helpers :refer [new-cell! rename-symbol]]
@@ -23,15 +23,17 @@
 (defn stop [e] (.preventDefault e) (.stopPropagation e))
 
 (defn cell-style [{:keys [width height]}]
-  {:width  (-> width (* state/x-unit) (+ (* state/gap (dec width))))
-   :height (-> height (* state/y-unit) (+ (* state/gap (dec height))) (+ 20))})
+  (let [{:keys [x-unit y-unit gap]} (:settings @layout)]
+    {:width  (-> width (* x-unit) (+ (* gap (dec width))))
+     :height (-> height (* y-unit) (+ (* gap (dec height))) (+ 20))}))
 
-(defn c-cell-size [cell]
+(defn c-cell-size [view]
   (let [drag-events (chan)
         drag-start-state (atom {})
+        {:keys [x-unit y-unit gap]} (:settings @layout)
         mouse-down-handler (fn [e]
                              (reset! drag-start-state
-                                     {:start-style (cell-style @cell)
+                                     {:start-style (cell-style @view)
                                       :x1 (.-clientX e)
                                       :y1 (.-clientY e)})
                              (sub window-mouse-events :mousemove drag-events)
@@ -40,7 +42,7 @@
         end-drag (fn []
                    (unsub window-mouse-events :mousemove drag-events)
                    (unsub window-mouse-events :mouseup drag-events)
-                   (swap! cell dissoc :drag-style))]
+                   (swap! view dissoc :drag-style))]
 
     (go-loop []
              (let [e (<! drag-events)]
@@ -52,7 +54,7 @@
                        [dx dy] [(- x2 x1) (- y2 y1)]
                        shadow-w (-> width (+ dx) (max 10))
                        shadow-h (-> height (+ dy) (max 10))]
-                   (swap! cell merge
+                   (swap! view merge
                           {:width      (-> shadow-w (/ (+ x-unit gap)) Math.round (max 1))
                            :height     (-> shadow-h (/ (+ y-unit gap)) Math.round (max 1))
                            :drag-style {:width   shadow-w
@@ -81,16 +83,15 @@
         handle-change (fn [e]                               ; allowed chars in symbols: http://stackoverflow.com/a/3961674/3421050
                         (reset! n (clojure.string/replace (-> e .-target .-value) #"[^\w-!?&\d+*_:]+" "-")))]
     (fn [id]
-      (let [display-id (if-not (.startsWith @n state/number-prefix) @n (if @focused @n (subs @n (count state/number-prefix))))]
-        [:input
-         {:class-name   "cell-id"
-          :on-change    handle-change
-          :on-focus     (fn [e] (reset! focused true) nil
-                          (js/setTimeout #(-> self .getDOMNode (.setSelectionRange 0 999)) 10))
-          :on-blur      (fn [] (save) (reset! focused nil))
-          :on-key-press #(if (= 13 (.-which %)) (save))
-          :style        {:width (+ 3 (* 8.40137 (count display-id)))}
-          :value        display-id}]))))
+      [:input
+       {:class-name   "cell-id"
+        :on-change    handle-change
+        :on-focus     (fn [e] (reset! focused true) nil
+                        (js/setTimeout #(-> self .getDOMNode (.setSelectionRange 0 999)) 10))
+        :on-blur      (fn [] (save) (reset! focused nil))
+        :on-key-press #(if (= 13 (.-which %)) (save))
+        :style        {:width (+ 3 (* 8.40137 (count @n)))}
+        :value        @n}])))
 
 (defn c-new-cell [styles]
   [:a {:on-click   #(do (new-cell!) (js/setTimeout focus-last-editor 200))

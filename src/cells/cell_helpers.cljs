@@ -9,8 +9,8 @@
             [cljs.reader :refer [read-string]]
             [cells.compiler]
             [cells.refactor.rename :refer [replace-symbol]]
-            [cells.timing :refer [clear-intervals! run-cell!]]
-            [cells.state :as state :refer [cells values]]))
+            [cells.timing :refer [clear-intervals! compile-cell! run-cell!]]
+            [cells.state :as state :refer [source values]]))
 
 (declare cell names alphabet-name number-name little-pony-names)
 
@@ -19,7 +19,7 @@
 (def new-name little-pony-name)
 
 (defn make-id [id-candidate]
-  (if (or (nil? id-candidate) (get @cells id-candidate))
+  (if (or (nil? id-candidate) (get @source id-candidate))
     (new-name)
     id-candidate))
 
@@ -33,37 +33,35 @@
   ([id data]
    (go
      (let [id (make-id id)
-           cell-data (cond
-                       (map? data) (merge blank-cell data)
-                       (string? data) (merge blank-cell {:source data})
-                       :else blank-cell)
-           cell-atom (r/atom cell-data)]
+           ; cell-data (merge blank-cell data)
+           source-atom (r/atom (:source data))
+           value-atom (r/atom (:initial-val data))]
 
-       (swap! cells assoc id cell-atom)                     ;canonical cell map
-       (if-not (get values id)                              ;cell value-cache
-         (swap! values assoc id (r/atom (:initial-val data)))
-         (reset! (get @values id) (:initial-val data)))
-       (<! (eval/def-cell id))
-       (add-watch cell-atom :update-source                  ;watch source to recompile
+       (swap! source assoc id source-atom)
+       (swap! values assoc id value-atom)
+
+       (add-watch value-atom :run-dependents
                   (fn [_ _ old new]
-                    (if (and (not= (:source old) (:source new))
+                    (go
+                      (if (not= old new)
+                        (doseq [s (get @state/dependents id)] (<! (run-cell! s)))))))
+       (add-watch source-atom :compile                 ;watch source to recompile
+                  (fn [_ _ old new]
+                    (if (and (not= old new)
                              (not= id @state/current-cell))
-                      (run-cell! id))))
-       (<! (run-cell! id))                                  ;run the cell now
-       (if-let [order (:order cell-data)]
-         (do
-           (swap! state/cell-order #(let [[before after] (split-at order %)]
-                                       (vec (concat before [id] after)))))
-         (swap! state/cell-order conj id))                  ;cell order
+                      (compile-cell! id))))
+
+       (<! (eval/def-cell id))
+       (<! (compile-cell! id))                                  ;run the cell now
+
+       (swap! state/layout update :views conj (r/atom {:id id :width 1 :height 1 :order (inc (count (:views @state/layout)))}))
        id))))
 
 (defn kill-cell!
   [id]
-  (swap! state/cell-order #(vec (remove (fn [s] (= s id)) %)))    ; cell order
   (swap! state/values dissoc id)                            ;cell value-cache
-  (swap! state/cells dissoc id)
-  (doseq [[_ a] @state/cells] (remove-watch a id))          ;remove watches
-  (doseq [[_ a] @state/values] (remove-watch a id))
+  (swap! state/source dissoc id)
+  (swap! state/layout update :views remove #(= id (:id @%)))
   (clear-intervals! id))
 
 (def html #(with-meta % {:hiccup true}))
@@ -84,7 +82,7 @@
                 (eval/def-cell id))]
      (clear-intervals! id)
      (let [interval-id (js/setInterval exec (max 24 n))]
-       (swap! state/index update-in [:interval-ids id] #(conj (or % []) interval-id)))
+       (swap! state/interval-ids update id #(conj (or % []) interval-id)))
      (f (get-val-dirty id)))))
 
 (defn get-json [url]
@@ -98,29 +96,28 @@
                 "GET"
                 )
       c)))
-
+(defn update-values [m f & args]
+  (reduce (fn [r [k v]] (assoc r k (apply f v args))) {} m))
 (defn rename-symbol [old-symbol new-symbol]
   (go
-    (let [all-vars (set (flatten [(keys @state/cells)
+    (let [all-vars (set (flatten [(keys @state/source)
                                   (keys (ns-interns 'cljs.core))
-                                  (keys (ns-interns 'cells.cell-helpers))]))
-          order (.indexOf (to-array @state/cell-order) old-symbol)]
+                                  (keys (ns-interns 'cells.cell-helpers))]))]
 
       (when (and new-symbol (not= old-symbol new-symbol) (not (all-vars new-symbol)))
 
-        (swap! state/cell-order #(vec (remove (fn [s] (= s old-symbol)) @state/cell-order))) ;remove from layout
-        (r/flush)
+        (doseq [view (:views @state/layout)]
+          (if (= old-symbol (:id @view)) (swap! view assoc :id new-symbol)))
 
-        (swap! values assoc new-symbol (r/atom (value old-symbol)))
+        #(swap! values assoc new-symbol (r/atom (value old-symbol)))
         (<! (eval/def-cell new-symbol))
-        (<! (new-cell! new-symbol (merge
-                                      @(get @state/cells old-symbol)
-                                      {:order order
-                                       :initial-val (value old-symbol)})))
+        (<! (new-cell! new-symbol
+                       {:source      @(get @state/source old-symbol)
+                        :initial-val (value old-symbol)}))
 
         (kill-cell! old-symbol)
-        (doseq [[_ src-atom] @state/cells]
-          (swap! src-atom update :source #(replace-symbol % old-symbol new-symbol)))))))
+        (doseq [[_ src-atom] @state/source]
+          (swap! src-atom #(replace-symbol % old-symbol new-symbol)))))))
 
 ; put get-json in user namespace, declare it, try it
 
@@ -147,13 +144,13 @@
     (loop [i char-index-start
            repetitions 1]
       (let [letter (symbol (apply str (repeat repetitions (char i))))]
-        (if-not (contains? @cells letter) letter
+        (if-not (contains? @source letter) letter
                                           (if (= i char-index-end)
                                             (recur char-index-start (inc repetitions))
                                             (recur (inc i) repetitions)))))))
 
 (defn number-name []
-  (inc (count @state/cells)))
+  (inc (count @state/source)))
 
 
 

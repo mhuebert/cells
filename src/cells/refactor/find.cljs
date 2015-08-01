@@ -22,7 +22,7 @@
     @result))
 
 (defn find-reactive-symbols [source]
-  (let [symbols (set (keys @state/cells))
+  (let [symbols (set (keys @state/source))
         f (fn [loc] (and (-> loc z/node n/sexpr symbols)
                        (and (not (has-left-parent loc 'interval))
                             (not (#{'value! 'source!} (some-> loc z/left z/sexpr))))))]

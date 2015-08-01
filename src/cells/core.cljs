@@ -10,14 +10,14 @@
     [cells.events :refer [mouse-event!]]
     [cells.components :as c]
     [cells.cell-helpers :refer [new-cell! alphabet-name]]
-    [cells.timing :refer [run-cell!]]
+    [cells.timing :refer [compile-cell!]]
     [cljs-cm-editor.core :refer [cm-editor cm-editor-static focus-last-editor]])
   (:import goog.events.EventType))
 
 (enable-console-print!)
 
 (defonce _
-         (go (doseq [s state/demo-cells] (<! (new-cell! (alphabet-name) s)))))
+         (go (doseq [s state/demo-cells] (<! (new-cell! (alphabet-name) {:source s})))))
 
 (defn click-coords [e]
   "On a click event, return click position or empty list."
@@ -29,27 +29,27 @@
                       :mode "clojureDeref"})
 
 (defn cell-view
-  [id]
+  [view]
   (let [editor-state (r/atom {:editing? false})]
-    (fn [id]
-      (let [cell (get @state/cells id)
-            source (r/cursor cell [:source])
+    (fn [view]
+      (let [id (:id @view)
+            source (get @state/source id)
             value (get @state/values id)
             show-editor #(do
                           (reset! state/current-cell id)
                           (reset! editor-state {:editing? true :click-coords (click-coords %)}))
             handle-editor-blur #(do (reset! state/current-cell nil)
                                     (swap! editor-state assoc :editing? false)
-                                    (run-cell! id))
+                                    (compile-cell! id))
             show-editor? (cond (:editing? @editor-state) true ;user has clicked to edit
                                (fn? @value) true ;always show src for functions
                                (not @value) true
                                :else false)]
-        [:div {:key id :class-name "cell" :style (c/cell-style @cell)}
+        [:div {:key id :class-name "cell" :style (c/cell-style @view)}
          [:div {:class-name "cell-drag-shadow"
-                :style      (:drag-style @cell)}]
+                :style      (:drag-style @view)}]
          [:div {:class-name "cell-meta"}
-          [c/c-cell-size cell]
+          [c/c-cell-size view]
           [c/c-cell-id id]
           (if (not show-editor?)
             [:span {:key      "formula" :class-name "show-formula"
@@ -78,7 +78,7 @@
   [:div
    [c/c-docs]
    (reduce into [:div {:key "cells" :class-name "cells"}]
-           [(for [id @state/cell-order] [cell-view id])
+           [(for [view (:views @state/layout)] [cell-view view])
             [[c/c-new-cell (c/cell-style {:width 1 :height 1})]]])])
 
 (r/render-component [app] (.getElementById js/document "app"))
