@@ -2,7 +2,7 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cells.state :as state :refer [layout sources values compiled-fns]]
             [cljs.core.async :refer [put! chan <! >!]]
-            [cells.compiler :refer [def-in-cljs-user compile-as-fn]]
+            [cells.compiler :refer [def-in-cljs-user declare-in-cljs-user compile-as-fn]]
             [cells.refactor.rename :refer [replace-symbol]]
             [cells.refactor.find :refer [find-reactive-symbols]]
 
@@ -40,22 +40,25 @@
   ([id data]
    (go
      (let [id (make-id id)
-           source-atom (r/atom (:source data))
-           value-atom (r/atom (:initial-val data))
-           compiled-fn-atom (r/atom nil)]
+           source-atom (r/atom nil)
+           compiled-fn-atom (r/atom (js* "function(){}"))
+           value-atom (r/atom (:initial-val data))]
+
+       (<! (def-in-cljs-user id (:initial-val data)))
 
        (swap! sources assoc id source-atom)
-       (swap! values assoc id value-atom)
        (swap! compiled-fns assoc id compiled-fn-atom)
+       (swap! values assoc id value-atom)
 
-
-       (add-watch source-atom nil
+       (add-watch source-atom :self-watch
                   (fn [_ _ old new]
                     (go
-                      (when (not= old new)
-                        (reset! compiled-fn-atom (<! (compile-as-fn new)))))))
+                      (when (not= id @state/current-cell)   ;TODO fix editor cells to control when the source atom updates
+                        (let [f (<! (compile-as-fn new))]
+                          (when (not= (.toString f) (.toString @compiled-fn-atom))
+                            (reset! compiled-fn-atom f)))))))
 
-       (add-watch compiled-fn-atom nil
+       (add-watch compiled-fn-atom :self-watch
                   (fn [_ _ _ fn]
                     (go
                       (update-subs! id)
@@ -64,7 +67,7 @@
                                 self-id id]
                         (reset! value-atom (fn))))))
 
-       (add-watch value-atom nil
+       (add-watch value-atom :self-watch
                   (fn [_ _ old new]
                     (go
                       (when (not= old new)
@@ -73,31 +76,29 @@
                           (clear-intervals! s)
                           (reset! (get @values s) (@(get @compiled-fns s))))))))
 
-       (<! (def-in-cljs-user
-             id
-             (binding [self @value-atom self-id id]
-               ((<! (compile-as-fn (:source data)))))))
-
-       (if-not
-         (= false (:layout data))
-         (swap! layout update :views conj (r/atom {:id id :width 1 :height 1 :order (inc (count (:views @state/layout)))})))
+       (reset! source-atom (:source data))
        id))))
+
+(defn clear-dependents! [id]
+  (swap! state/dependents update-values disj id))
 
 (defn kill-cell!
   [id]
+  (clear-intervals! id)
+  (clear-dependents! id)
+  (swap! state/dependents dissoc id)
   (swap! values dissoc id)                            ;cell value-cache
   (swap! compiled-fns dissoc id)
-  (swap! sources dissoc id)
-  (clear-intervals! id))
+  (swap! sources dissoc id))
 
 (defn interval
   ([f] (interval f 500))
   ([n f]
-   (let [id cljs.user/self-id
+   (let [id self-id
          value (get @values id)
-         exec #(binding [self @value
+         exec #(binding [self @(get @values id)
                          self-id id]
-                (swap! value f))]
+                (reset! value (f self)))]
      (clear-intervals! id)
      (let [interval-id (js/setInterval exec (max 24 n))]
        (swap! state/interval-ids update id #(conj (or % []) interval-id)))
@@ -113,8 +114,7 @@
 
         (<! (new-cell! new-symbol
                        {:source      @(get @sources old-symbol)
-                        :initial-val @(get @values old-symbol)
-                        :layout      false}))
+                        :initial-val @(get @values old-symbol)}))
 
         (doseq [view (:views @state/layout)]
           (if (= old-symbol (:id @view)) (swap! view assoc :id new-symbol)))

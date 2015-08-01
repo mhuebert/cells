@@ -43,6 +43,9 @@
          (declare interval html value values new-cell value!)
          "))
 
+(defn declare-in-cljs-user [id]
+  (eval `(declare ~id)))
+
 (defn def-in-cljs-user [id value]
   (eval `(def ~id ~value)))
 

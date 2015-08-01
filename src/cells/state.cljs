@@ -3,8 +3,8 @@
 
 
 ;persisted values
-(defonce sources (r/atom {}))
-(defonce values (r/atom {}))
+(defonce sources (atom {}))
+(defonce values (atom {}))
 
 (defonce layout (r/atom {:settings {:x-unit 224
                                     :y-unit 126
@@ -18,8 +18,10 @@
 (defonce current-cell (atom nil))
 
 
-(def demo-cells ["1" "(+ a 1)"])
+(def demo-cells ["(interval 400 inc)"
+                 "(+ a 1)"
+                 ])
 
 
-(def ^:dynamic self nil)
+
 

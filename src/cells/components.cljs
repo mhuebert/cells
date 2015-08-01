@@ -2,10 +2,49 @@
   (:require-macros [cljs.core.async.macros :refer [alt! go go-loop]])
   (:require [reagent.core :as r]
             [cells.state :as state :refer [layout]]
+            [cells.layout :refer [add-cell-view!]]
             [cljs.core.async :refer [put! chan <! buffer mult tap pub sub unsub close!]]
             [cells.events :refer [listen window-mouse-events]]
             [cells.cells :refer [new-cell! rename-symbol]]
-            [cljs-cm-editor.core :refer [focus-last-editor]]))
+            [cells.editor :refer [cm-editor cm-editor-static]]))
+
+(declare cell-name cell-resize cell-style click-coords)
+
+(defn cell [view]
+  (let [id (:id @view)
+        value (get @state/values id)
+        show-editor #(do (reset! state/current-cell id)
+                         (swap! view merge {:editing?     true
+                                            :click-coords (click-coords %)}))
+        handle-editor-blur #(do (reset! state/current-cell nil)
+                                (swap! view merge {:editing? false
+                                                   :click-coords []})
+                                (swap! (get @state/sources id) identity))
+        handle-editor-focus #(reset! state/current-cell id)
+        view-mode (cond (:editing? @view) :source
+                        (some-> @value meta :hiccup) :hiccup
+                        :else :value)]
+
+    [:div {:class-name "cell"
+           :style (cell-style @view)}
+     [cell-resize view]
+
+     [:div {:class-name "cell-meta"}
+      [cell-name id]
+      [:span { :on-click show-editor :class-name (str "show-formula" (if (= view-mode :source) " hidden"))} "source"]]
+
+     [:div {:class-name "cell-content"
+            :on-click show-editor
+            :on-focus     handle-editor-focus
+            :on-blur      handle-editor-blur}
+
+      (condp = view-mode
+        :value
+        ^{:key :value} [cm-editor-static value {:readOnly "nocursor" :matchBrackets false}]
+        :source
+        ^{:key :source} [cm-editor (get @state/sources id) @view]
+        :hiccup
+        [:div {:class-name "cell-as-html" :key "as-html"} @value])]]))
 
 (defn c-error [content]
   (with-meta
@@ -27,7 +66,7 @@
     {:width  (-> width (* x-unit) (+ (* gap (dec width))))
      :height (-> height (* y-unit) (+ (* gap (dec height))) (+ 20))}))
 
-(defn c-cell-size [view]
+(defn cell-resize [view]
   (let [drag-events (chan)
         drag-start-state (atom {})
         {:keys [x-unit y-unit gap]} (:settings @layout)
@@ -63,40 +102,50 @@
                (recur)))
 
     (fn [cell]
-      [:div {:class-name    "cell-size"
-             :on-mouse-down mouse-down-handler}])))
+      [:div
+       [:div {:class-name "cell-drag-shadow" :style (:drag-style @view)}]
+       [:div {:class-name    "cell-size"
+              :on-mouse-down mouse-down-handler}]])))
 
-(defn c-docs []
+(defn docs []
   [:div {:style {:font-family "monospace" :margin 30}}
    #_[c-doc "value!" ["id" "value"] "set cell value"]
    #_[c-doc "source!" ["id" "string"] "set cell source"]
-   #_[fn-spec "source" ["id"] "get cell source"]
    [c-doc "interval" ["n" "fn"] "call fn every n ms"]
    [c-doc [:span {:style {:font-style "italic"}} "self"] [] "current cell value"]
    #_[c-doc [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-enter"] [] "run current cell"]])
 
-(defn c-cell-id [id]
+(defn cell-name [id]
   (let [n (r/atom (str (name id)))
-        focused (r/atom false)
         self (r/current-component)
-        save (fn [] (rename-symbol id (symbol @n)))
+        save #(rename-symbol id (symbol @n))
         handle-change (fn [e]                               ; allowed chars in symbols: http://stackoverflow.com/a/3961674/3421050
                         (reset! n (clojure.string/replace (-> e .-target .-value) #"[^\w-!?&\d+*_:]+" "-")))]
-    (fn [id]
-      [:input
-       {:class-name   "cell-id"
-        :on-change    handle-change
-        :on-focus     (fn [e] (reset! focused true) nil
-                        (js/setTimeout #(-> self .getDOMNode (.setSelectionRange 0 999)) 10))
-        :on-blur      (fn [] (save) (reset! focused nil))
-        :on-key-press #(if (= 13 (.-which %)) (save))
-        :style        {:width (+ 3 (* 8.40137 (count @n)))}
-        :value        @n}])))
+    (r/create-class
+      {:should-component-update (fn [_ [_ v1] [_ v2]]
+                                  (not= (:id v1) (:id v2)))
+       :reagent-render
+                                (fn [id]
+                                  [:input
+                                   {:class-name   "cell-id"
+                                    :on-change    handle-change
+                                    :on-focus     (fn [e]
+                                                    (js/setTimeout #(-> self .getDOMNode (.setSelectionRange 0 999)) 10))
+                                    :on-blur      save
+                                    :on-key-press #(if (= 13 (.-which %)) (save))
+                                    :style        {:width (+ 3 (* 8.40137 (count @n)))}
+                                    :value        @n}])})))
 
-(defn c-new-cell [styles]
-  [:a {:on-click   #(do (new-cell!) (js/setTimeout focus-last-editor 200))
+(defn new-cell-btn [styles]
+  [:a {:on-click   #(go (add-cell-view! (<! (new-cell!)) {:editing? true
+                                                          :autofocus true}))
        :class-name "touch-btn cell"
        :key        "new-cell"
-       :style styles}
+       :style      (cell-style {:width 1 :height 1})}
    [:div {:class-name "cell-meta" :key "meta"}]
    [:div {:class-name "cell-value" :key "value"} "+"]])
+
+(defn click-coords [e]
+  "On a click event, return click position or empty list."
+  (if (.-currentTarget e) [(.-pageX e) (.-pageY e)] []))
+
