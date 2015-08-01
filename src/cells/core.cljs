@@ -19,7 +19,7 @@
 
 (defonce _
          (go (doseq [s state/demo-cells]
-               (layout/add-cell-view! (<! (cells/new-cell! (cells/alphabet-name) {:source s}))))))
+               (layout/add-cell-view! (<! (cells/new-cell! (cells/alphabet-name) s))))))
 
 (defn app []
   (fn []

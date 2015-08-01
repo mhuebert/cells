@@ -32,7 +32,7 @@
     c))
 
 (defonce _
-         (let [names ['interval 'html 'value 'values 'new-cell 'value!]]
+         (let [names ['self 'self-id 'interval 'html 'value 'values 'new-cell 'value!]]
            (eval `(declare ~@names))))
 
 (defn declare-in-cljs-user [id]

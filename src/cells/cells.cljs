@@ -5,12 +5,10 @@
             [cells.compiler :refer [def-in-cljs-user declare-in-cljs-user compile-as-fn]]
             [cells.refactor.rename :refer [replace-symbol]]
             [cells.refactor.find :refer [find-reactive-symbols]]
-            [reagent.core :as r]))
+            [reagent.core :as r]
+            [cljs.user]))
 
 (declare alphabet-name number-name little-pony-names new-name make-id update-subs! clear-intervals!)
-
-(def ^:dynamic self)
-(def ^:dynamic self-id)
 
 (defn new-cell!
   ([] (new-cell! (new-name) nil))
@@ -41,8 +39,8 @@
                     (go
                       (update-subs! id)
                       (clear-intervals! id)
-                      (binding [self @value-atom
-                                self-id id]
+                      (binding [cljs.user/self @value-atom
+                                cljs.user/self-id id]
                         (reset! value-atom (fn))))))
 
        (add-watch value-atom :self-watch
@@ -52,7 +50,9 @@
                         (<! (def-in-cljs-user id new))
                         (doseq [s (get @state/dependents id)]
                           (clear-intervals! s)
-                          (reset! (get @values s) (@(get @compiled-fns s))))))))
+                          (binding [cljs.user/self @(get @values s)
+                                    cljs.user/self-id s]
+                            (reset! (get @values s) (@(get @compiled-fns s)))))))))
 
        (reset! source-atom (:source data))                  ;this will start the reactions
        id))))
@@ -86,11 +86,11 @@
 (defn interval
   ([f] (interval f 500))
   ([n f]
-   (let [id self-id
+   (let [id cljs.user/self-id
          value (get @values id)
-         exec #(binding [self @(get @values id)
-                         self-id id]
-                (reset! value (f self)))]
+         exec #(binding [cljs.user/self @(get @values id)
+                         cljs.user/self-id id]
+                (reset! value (f cljs.user/self)))]
      (clear-intervals! id)
      (let [interval-id (js/setInterval exec (max 24 n))]
        (swap! state/interval-ids update id #(conj (or % []) interval-id)))
