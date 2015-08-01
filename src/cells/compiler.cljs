@@ -2,8 +2,7 @@
   (:require [cljs.core.async :refer [put! chan <!]]
             [cljs.reader :refer [read-string]]
             [cljs.js :as cljs]
-            [cljs.pprint :refer [pprint]]
-            [cells.state :as state :refer [self]]))
+            [cljs.pprint :refer [pprint]]))
 
 (enable-console-print!)
 
@@ -42,26 +41,13 @@
 (defonce _
          (eval-str "
          (declare interval html value values new-cell value!)
-         (def ^:dynamic self)
-         (def ^:dynamic self-id)
          "))
 
-(defn def-cell [id]
-  (eval `(def ~id (~'value '~id))))
+(defn def-in-cljs-user [id value]
+  (eval `(def ~id ~value)))
 
-(defn eval-def-cell [id]
-  (eval `(binding [~'self-id '~id
-                   ~'self ~id]
-           (let [res# (~(symbol (str "_" (name id))))]
-             (def ~id res#)
-             (reset! (get @~'values '~id) res#)
-             res#))))
-
-(defn compile-cell-fn [id]
-  (let [source (-> @state/source (get id) deref)]
-    (eval-str (str "(let [compiled-fn (fn [] " source ")]
-          (def _" id " compiled-fn)
-          compiled-fn)"))))
+(defn compile-as-fn [source]
+  (eval-str (str "(fn [] " source ")")))
 
 
 

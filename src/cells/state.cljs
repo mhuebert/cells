@@ -3,7 +3,7 @@
 
 
 ;persisted values
-(defonce source (r/atom {}))
+(defonce sources (r/atom {}))
 (defonce values (r/atom {}))
 
 (defonce layout (r/atom {:settings {:x-unit 224
@@ -22,4 +22,4 @@
 
 
 (def ^:dynamic self nil)
-(def ^:dynamic self-id nil)
+

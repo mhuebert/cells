@@ -4,7 +4,7 @@
             [cells.state :as state :refer [layout]]
             [cljs.core.async :refer [put! chan <! buffer mult tap pub sub unsub close!]]
             [cells.events :refer [listen window-mouse-events]]
-            [cells.cell-helpers :refer [new-cell! rename-symbol]]
+            [cells.cells :refer [new-cell! rename-symbol]]
             [cljs-cm-editor.core :refer [focus-last-editor]]))
 
 (defn c-error [content]
@@ -73,7 +73,7 @@
    #_[fn-spec "source" ["id"] "get cell source"]
    [c-doc "interval" ["n" "fn"] "call fn every n ms"]
    [c-doc [:span {:style {:font-style "italic"}} "self"] [] "current cell value"]
-   [c-doc [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-r"] [] "run current cell"]])
+   #_[c-doc [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-enter"] [] "run current cell"]])
 
 (defn c-cell-id [id]
   (let [n (r/atom (str (name id)))

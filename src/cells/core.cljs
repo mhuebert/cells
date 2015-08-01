@@ -9,8 +9,7 @@
     [cells.keys]
     [cells.events :refer [mouse-event!]]
     [cells.components :as c]
-    [cells.cell-helpers :refer [new-cell! alphabet-name]]
-    [cells.timing :refer [compile-cell!]]
+    [cells.cells :refer [new-cell! alphabet-name]]
     [cljs-cm-editor.core :refer [cm-editor cm-editor-static focus-last-editor]])
   (:import goog.events.EventType))
 
@@ -33,14 +32,14 @@
   (let [editor-state (r/atom {:editing? false})]
     (fn [view]
       (let [id (:id @view)
-            source (get @state/source id)
+            source (r/atom @(get @state/sources id))
             value (get @state/values id)
             show-editor #(do
                           (reset! state/current-cell id)
                           (reset! editor-state {:editing? true :click-coords (click-coords %)}))
             handle-editor-blur #(do (reset! state/current-cell nil)
                                     (swap! editor-state assoc :editing? false)
-                                    (compile-cell! id))
+                                    (reset! (get @state/sources id) @source))
             show-editor? (cond (:editing? @editor-state) true ;user has clicked to edit
                                (fn? @value) true ;always show src for functions
                                (not @value) true
