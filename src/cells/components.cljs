@@ -15,18 +15,19 @@
 (defn cell [view]
   (let [id (:id @view)
         value (get @state/values id)
+        editor-content (atom @(get @state/sources id))
         show-editor #(do (reset! state/current-cell id)
                          (swap! view merge {:editing?     true
                                             :click-coords (click-coords %)}))
         handle-editor-blur #(do (reset! state/current-cell nil)
                                 (swap! view merge {:editing? false
                                                    :click-coords []})
-                                (swap! (get @state/sources id) identity))
+                                (reset! (get @state/sources id) @editor-content))
         handle-editor-focus #(reset! state/current-cell id)
+
         view-mode (cond (:editing? @view) :source
                         (some-> @value meta :hiccup) (if (mode :show-all-source) :value :hiccup)
                         :else :value)]
-
 
     [:div {:class-name "cell"
            :style (cell-style @view)}
@@ -42,11 +43,11 @@
             :on-blur      handle-editor-blur}
       (condp = view-mode
         :value
-        ^{:key :value} [cm-editor-static (if (mode :show-all-source)
-                                           @(get @sources id)
-                                           @value) {:readOnly "nocursor" :matchBrackets false}]
+        ^{:key :value} [cm-editor-static (if (mode :show-all-source) @(get @sources id) @value)
+                        {:readOnly "nocursor" :matchBrackets false}]
         :source
-        ^{:key :source} [cm-editor (get @state/sources id) @view]
+        ^{:key :source} [cm-editor @(get @sources id)
+                         (assoc @view :on-change #(reset! editor-content %))]
         :hiccup
         [:div {:class-name "cell-as-html" :key "as-html"} @value])]]))
 

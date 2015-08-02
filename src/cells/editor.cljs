@@ -31,28 +31,35 @@
 
 (defn cm-editor
   ([a] (cm-editor a {}))
-  ([a options]
+  ([val options]
    (r/create-class
-     {:component-did-mount    #(let [config (clj->js (merge cm-defaults options))
-                                     editor (js/CodeMirror (-> % .getDOMNode) config)]
-                                (r/set-state % {:editor editor :id (:id options) :a a})
-                                (.setValue editor (coerce @a))
+     {:component-did-mount       #(let [config (clj->js (merge cm-defaults options))
+                                        editor (js/CodeMirror (-> % .getDOMNode) config)
+                                        change-handler (:on-change options)]
 
-                                (add-watch a :source-edit (fn [_ _ _ source]
-                                                            (if (not= source (.getValue editor))
-                                                              (set-preserve-cursor editor (coerce source)))))
-                                (.on editor "change" (fn [_]
-                                                       (let [value (.getValue editor)]
-                                                         (reset! a value))))
-                                (if-not (empty? (:click-coords options))
-                                  (let [[x y] (:click-coords options)
-                                        pos (.coordsChar editor (clj->js {:left x :top y}))]
-                                    (.focus editor)
-                                    (.setCursor editor pos))))
+                                   (r/set-state % {:editor editor :id (:id options) :a val})
 
-      :component-will-unmount #(let [{:keys [editor]} (r/state %)] (.off editor))
+                                   (.setValue editor (coerce val))
 
-      :reagent-render         (fn [] [:div {:style editor-style}])})))
+                                   (.on editor "change" (fn [_]
+                                                          (if change-handler
+                                                            (change-handler (.getValue editor)))))
+
+                                   (if-not (empty? (:click-coords options))
+                                     (let [[x y] (:click-coords options)
+                                           pos (.coordsChar editor (clj->js {:left x :top y}))]
+                                       (.focus editor)
+                                       (.setCursor editor pos))))
+
+      :componentWillReceiveProps (fn [this [_ val]]
+                                   (let [editor (:editor (r/state this))
+                                         val (coerce val)]
+                                     (if (not= val (.getValue editor))
+                                       (set-preserve-cursor editor val))))
+
+      :component-will-unmount    #(.off (:editor (r/state %)))
+
+      :reagent-render            (fn [] [:div {:style editor-style}])})))
 
 (defn cm-editor-static
   ([a] (cm-editor-static a {}))
@@ -70,7 +77,6 @@
                                    (r/set-state % {:editor editor :a a})
                                    (.setValue editor (coerce a) #_(coerce @a)))
       :componentWillReceiveProps (fn [this [_ val]]
-
                                    (.setValue (:editor (r/state this)) (coerce val)))
       :reagent-render            (fn []
                                    [:div {:style editor-style}])})))

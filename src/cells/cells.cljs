@@ -29,10 +29,9 @@
        (add-watch source-atom :self-watch
                   (fn [_ _ _ new]
                     (go
-                      (when (not= id @state/current-cell)   ;TODO - layout should control when source atom updates
-                        (let [f (<! (compile-as-fn new))]
-                          (when (not= (.toString f) (.toString @compiled-fn-atom))
-                            (reset! compiled-fn-atom f)))))))
+                      (let [f (<! (compile-as-fn new))]
+                        (when (not= (.toString f) (.toString @compiled-fn-atom))
+                          (reset! compiled-fn-atom f))))))
 
        (add-watch compiled-fn-atom :self-watch
                   (fn [_ _ _ fn]
