@@ -1,8 +1,6 @@
 (ns cells.state
   (:require [reagent.core :as r]))
 
-
-
 ;persisted values
 (defonce sources (atom {}))
 (defonce values (atom {}))
