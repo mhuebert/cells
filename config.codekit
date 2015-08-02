@@ -23,6 +23,39 @@
 		"randomFootnoteNumbers": 0,
 		"useCompatibilityMode": 0
 		},
+	"\/src\/js\/codemirror\/match-brackets.js": {
+		"fileType": 64,
+		"ignore": 0,
+		"ignoreWasSetByUser": 0,
+		"inputAbbreviatedPath": "\/src\/js\/codemirror\/match-brackets.js",
+		"outputAbbreviatedPath": "\/src\/js\/codemirror\/min\/match-brackets-min.js",
+		"outputPathIsOutsideProject": 0,
+		"outputPathIsSetByUser": 0,
+		"outputStyle": 1,
+		"syntaxCheckerStyle": 1
+		},
+	"\/src\/js\/codemirror\/overlay.js": {
+		"fileType": 64,
+		"ignore": 0,
+		"ignoreWasSetByUser": 0,
+		"inputAbbreviatedPath": "\/src\/js\/codemirror\/overlay.js",
+		"outputAbbreviatedPath": "\/src\/js\/codemirror\/min\/overlay-min.js",
+		"outputPathIsOutsideProject": 0,
+		"outputPathIsSetByUser": 0,
+		"outputStyle": 1,
+		"syntaxCheckerStyle": 1
+		},
+	"\/src\/js\/codemirror\/subpar-with-keymap.js": {
+		"fileType": 64,
+		"ignore": 0,
+		"ignoreWasSetByUser": 0,
+		"inputAbbreviatedPath": "\/src\/js\/codemirror\/subpar-with-keymap.js",
+		"outputAbbreviatedPath": "\/src\/js\/codemirror\/min\/subpar-with-keymap-min.js",
+		"outputPathIsOutsideProject": 0,
+		"outputPathIsSetByUser": 0,
+		"outputStyle": 1,
+		"syntaxCheckerStyle": 1
+		},
 	"\/src\/styles\/cells.styl": {
 		"createSourceMap": 1,
 		"debugStyle": 0,

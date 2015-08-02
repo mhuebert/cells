@@ -1,9 +1,10 @@
 (ns cells.editor
   (:require [reagent.core :as r]
-            [CodeMirror]
-            [CodeMirror-match-brackets]
-            [CodeMirror-overlay]
-            [CodeMirror-subpar]))
+            [cljsjs.codemirror]
+            [cljsjs.codemirror.mode.clojure]
+            [addons.codemirror.match-brackets]
+            [addons.codemirror.overlay]
+            [addons.codemirror.subpar]))
 
 
 (def cm-defaults

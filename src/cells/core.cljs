@@ -2,7 +2,6 @@
   ^:figwheel-always
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require
-    [cells.js]
     [cells.events]
     [cljs.user]
     [cells.state :as state]

@@ -5,13 +5,11 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
   :dependencies [[org.clojure/clojure "1.7.0"]
-                 ;[org.clojure/clojurescript "0.0-3308"]
                  [org.clojure/clojurescript "1.7.21"]
-                 [org.clojure/tools.reader "0.10.0-SNAPSHOT"]
                  [org.clojure/core.async "0.1.346.0-17112a-alpha"]
                  [reagent "0.5.0"]
                  [rewrite-cljs "0.3.0"]
-                 [cljs-cm-editor "0.1.1-SNAPSHOT"]]
+                 [cljsjs/codemirror "5.1.0-2"]]
 
   :plugins [[lein-cljsbuild "1.0.5"]
             [lein-figwheel "0.3.5"]]
@@ -39,7 +37,6 @@
                          :main cells.core
                          :optimizations :simple
                          :pretty-print false
-                         ;:externs ["resources/private/js/codemirror-externs.js"]
                          }}]}
 
   :figwheel {
