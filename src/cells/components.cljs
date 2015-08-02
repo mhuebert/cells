@@ -1,15 +1,17 @@
 (ns cells.components
   (:require-macros [cljs.core.async.macros :refer [alt! go go-loop]])
   (:require [reagent.core :as r]
-            [cells.state :as state :refer [layout]]
+            [cells.state :as state :refer [layout sources values]]
             [cells.layout :refer [add-cell-view!]]
             [cljs.core.async :refer [put! chan <! buffer mult tap pub sub unsub close!]]
             [cells.events :refer [listen window-mouse-events]]
             [cells.cells :refer [new-cell! rename-symbol!]]
             [cells.editor :refer [cm-editor cm-editor-static]]))
 
-(declare cell-name cell-resize cell-style click-coords)
-
+(declare cell-id cell-resize cell-style click-coords)
+(defn mode [k] (get-in @layout [:modes k]))
+(defn mode! [k v]
+  (swap! layout assoc-in [:modes k] v))
 (defn cell [view]
   (let [id (:id @view)
         value (get @state/values id)
@@ -22,25 +24,27 @@
                                 (swap! (get @state/sources id) identity))
         handle-editor-focus #(reset! state/current-cell id)
         view-mode (cond (:editing? @view) :source
-                        (some-> @value meta :hiccup) :hiccup
+                        (some-> @value meta :hiccup) (if (mode :show-all-source) :value :hiccup)
                         :else :value)]
+
 
     [:div {:class-name "cell"
            :style (cell-style @view)}
      [cell-resize view]
 
      [:div {:class-name "cell-meta"}
-      [cell-name id]
+      [cell-id id]
       [:span { :on-click show-editor :class-name (str "show-formula" (if (= view-mode :source) " hidden"))} "source"]]
 
      [:div {:class-name "cell-content"
             :on-click show-editor
             :on-focus     handle-editor-focus
             :on-blur      handle-editor-blur}
-
       (condp = view-mode
         :value
-        ^{:key :value} [cm-editor-static value {:readOnly "nocursor" :matchBrackets false}]
+        ^{:key :value} [cm-editor-static (if (mode :show-all-source)
+                                           @(get @sources id)
+                                           @value) {:readOnly "nocursor" :matchBrackets false}]
         :source
         ^{:key :source} [cm-editor (get @state/sources id) @view]
         :hiccup
@@ -115,10 +119,14 @@
    [c-doc [:span {:style {:font-style "italic"}} "self"] [] "current cell value"]
    #_[c-doc [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-enter"] [] "run current cell"]])
 
-(defn cell-name [id]
+(defn cell-id [id]
   (let [n (r/atom (str (name id)))
         self (r/current-component)
-        save #(rename-symbol! id (symbol @n))
+        enter-global-edit #(mode! :show-all-source id)
+        exit-global-edit (fn [id] #(if (= id (mode :show-all-source)) (mode! :show-all-source false)))
+        save (fn []
+               (rename-symbol! id (symbol @n))
+               (js/setTimeout (exit-global-edit id) 1000))
         handle-change (fn [e]                               ; allowed chars in symbols: http://stackoverflow.com/a/3961674/3421050
                         (reset! n (clojure.string/replace (-> e .-target .-value) #"[^\w-!?&\d+*_:]+" "-")))]
     (r/create-class
@@ -130,8 +138,11 @@
                                    {:class-name   "cell-id"
                                     :on-change    handle-change
                                     :on-focus     (fn [e]
+                                                    (enter-global-edit)
                                                     (js/setTimeout #(-> self .getDOMNode (.setSelectionRange 0 999)) 10))
-                                    :on-blur      save
+                                    :on-blur      (fn []
+                                                    (js/setTimeout (exit-global-edit id) 1000)
+                                                    (save))
                                     :on-key-press #(if (= 13 (.-which %)) (save))
                                     :style        {:width (+ 3 (* 8.40137 (count @n)))}
                                     :value        @n}])})))

@@ -58,19 +58,22 @@
   ([a] (cm-editor-static a {}))
   ([a options]
    (r/create-class
-     {:component-did-mount #(let [config (clj->js (merge cm-defaults options))
-                                  editor (js/CodeMirror (-> % .getDOMNode) config)]
-                             (add-watch a :source-edit (fn [_ _ _ source]
-                                                (let [source (coerce source)]
-                                                  (if (not= source (.getValue editor))
-                                                    (.setValue editor source)))))
-                             (if (:on-click options)
-                               (.on editor "mousedown" (:on-click options)))
-                             (r/set-state % {:editor editor :a a})
-                             (.setValue editor (coerce @a)))
+     {:component-did-mount       #(let [config (clj->js (merge cm-defaults options))
+                                        editor (js/CodeMirror (-> % .getDOMNode) config)]
 
-      :reagent-render      (fn []
-                             [:div {:style editor-style}])})))
+                                   #_(add-watch a :source-edit (fn [_ _ _ source]
+                                                                 (let [source (coerce source)]
+                                                                   (if (not= source (.getValue editor))
+                                                                     (.setValue editor source)))))
+                                   (if (:on-click options)
+                                     (.on editor "mousedown" (:on-click options)))
+                                   (r/set-state % {:editor editor :a a})
+                                   (.setValue editor (coerce a) #_(coerce @a)))
+      :componentWillReceiveProps (fn [this [_ val]]
+
+                                   (.setValue (:editor (r/state this)) (coerce val)))
+      :reagent-render            (fn []
+                                   [:div {:style editor-style}])})))
 
 
 

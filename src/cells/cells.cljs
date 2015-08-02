@@ -105,8 +105,8 @@
 
       (when (and new-symbol (not= old-symbol new-symbol) (not (all-vars new-symbol)))
 
-        (<! (new-cell! new-symbol
-                       {:source      @(get @sources old-symbol)
+        (<! (new-cell! {:id new-symbol
+                        :source      @(get @sources old-symbol)
                         :initial-val @(get @values old-symbol)}))
 
         (doseq [view (:views @state/layout)]
