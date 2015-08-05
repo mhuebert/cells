@@ -11,46 +11,43 @@
 
 (defonce html #(with-meta % {:hiccup true}))
 
-(defn value [id]
+(defn value
+  "Returns the value of a cell."
+  [id]
   @(get @values id))
 
-(defn md [source]
+(defn md
+  "Parses markdown and returns html."
+  [source]
   (html [:span {:class "markdown-body" :dangerouslySetInnerHTML {:__html (js/marked source)}} ]))
 
-(defn source [id]
+(defn source
+  "Returns the source of a cell."
+  [id]
   @(get @sources id))
 
-(defn value! [id val]
+(defn value!
+  "Sets the value of a cell."
+  [id val]
   (let [a (get @values id)]
     (when (not= val @a)
       (reset! a val)))
   val)
 
-(defn source! [id val]
+(defn source!
+  "Sets the source of a cell."
+  [id val]
   (reset! (get @sources id) val)
   val)
 
-(defn self! [val]
+(defn self!
+  "Sets the value of the current cell."
+  [val]
   (value! self-id val))
 
-(defn get-json [url]
-  (go
-    (let [c (chan)]
-      (xhr/send url
-                #(let [text (-> % .-target .getResponseText)
-                       res (try (-> text read-string :js)
-                                (catch js/Error e (.log js/console e)))]
-                  (put! c (js->clj res)))
-                "GET")
-      c)))
-
-; put get-json in user namespace, declare it, try it
-#_(interval 500
-          (fn []
-            (.send goog.net.XhrIo "http://time.jsontest.com"
-                   #(cell! 2 (first (vals (js->clj (.getResponseJson (.-target %)))))))))
-
 (defn interval
+  "Calls the provided function every n milliseconds and sets the current cell's
+  value to the result."
   ([f] (interval f 500))
   ([n f]
    (let [id self-id
@@ -64,6 +61,8 @@
      (f @value))))
 
 (defn slurp
+  "Initiates an ajax request for the given path and sets the current cell's
+  value to the result."
   ([path] (slurp {} path))
   ([opts path]
    (let [id self-id
@@ -79,6 +78,7 @@
      nil)))
 
 (defn new-cell!
+  "Creates a new cell, adds a view for the cell to the current layout, and returns the new cell's id."
   ([] (new-cell! {}))
   ([opts]
    (let [id (or (:id opts) (cells/new-name))

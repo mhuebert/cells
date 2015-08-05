@@ -1,6 +1,8 @@
 // CodeMirror, copyright (c) by Marijn Haverbeke and others
 // Distributed under an MIT license: http://codemirror.net/LICENSE
 
+// modified to signal codemirror instance instead of `data` object
+
 (function(mod) {
   if (typeof exports == "object" && typeof module == "object") // CommonJS
     mod(require("../../lib/codemirror"));
@@ -61,7 +63,7 @@
       this.tick = null;
       this.cm.off("cursorActivity", this.activityFunc);
 
-      if (this.widget && this.data) CodeMirror.signal(this.data, "close");
+      if (this.widget && this.data) CodeMirror.signal(this.cm, "close");
       if (this.widget) this.widget.close();
       CodeMirror.signal(this.cm, "endCompletion", this.cm);
     },
@@ -75,7 +77,7 @@
       if (completion.hint) completion.hint(this.cm, data, completion);
       else this.cm.replaceRange(getText(completion), completion.from || data.from,
                                 completion.to || data.to, "complete");
-      CodeMirror.signal(data, "pick", completion);
+      CodeMirror.signal(this.cm, "pick", completion);
       this.close();
     },
 
@@ -110,7 +112,7 @@
     },
 
     finishUpdate: function(data, first) {
-      if (this.data) CodeMirror.signal(this.data, "update");
+      if (this.data) CodeMirror.signal(this.cm, "update");
       if (data && this.data && CodeMirror.cmpPos(data.from, this.data.from)) data = null;
       this.data = data;
 
@@ -121,7 +123,7 @@
           this.pick(data, 0);
         } else {
           this.widget = new Widget(this, data);
-          CodeMirror.signal(data, "shown");
+          CodeMirror.signal(this.cm, "shown");
         }
       }
     },
@@ -284,7 +286,7 @@
       setTimeout(function(){cm.focus();}, 20);
     });
 
-    CodeMirror.signal(data, "select", completions[0], hints.firstChild);
+    CodeMirror.signal(cm, "select", completions[0], hints.firstChild);
     return true;
   }
 
@@ -328,7 +330,7 @@
         this.hints.scrollTop = node.offsetTop - 3;
       else if (node.offsetTop + node.offsetHeight > this.hints.scrollTop + this.hints.clientHeight)
         this.hints.scrollTop = node.offsetTop + node.offsetHeight - this.hints.clientHeight + 3;
-      CodeMirror.signal(this.data, "select", this.data.list[this.selectedHint], node);
+      CodeMirror.signal(this.completion.cm, "select", this.data.list[this.selectedHint], node);
     },
 
     screenAmount: function() {

@@ -1,11 +1,15 @@
 (ns cells.editor
+  (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [reagent.core :as r]
+            [cljs.core.async :refer [<!]]
             [cljsjs.codemirror]
             [cljsjs.codemirror.mode.clojure]
             [addons.codemirror.match-brackets]
             [addons.codemirror.overlay]
             [addons.codemirror.subpar]
-            [addons.codemirror.show-hint]))
+            [addons.codemirror.show-hint]
+            [cells.compiler :as compiler]
+            [cells.state :as state]))
 
 (def cm-defaults
   {:theme "3024-day"
@@ -30,10 +34,28 @@
 
 (def editor-style {:display "flex" :flex 1})
 
+(def static-vars
+  (memoize (fn []                                           ;clojure is not happy if we try ns-interns too soon, hence this is a fn
+             (clojure.set/union (set (keys (ns-interns 'cljs.core)))
+                                (set (keys (ns-interns 'cells.cell-helpers)))))))
+
+(def static-var-strings
+  (memoize (fn []
+             (map name (static-vars)))))
+
+(defn show-doc [word]
+  (go
+    (let [m (if ((static-vars) (symbol word))
+                (<! (compiler/eval-str (str "(meta (var " word "))")))
+                nil)]
+      (reset! state/current-meta m))))
+
 (defn hint [word from to]
-  (fn []
-    (let [vars (map demunge (js/Object.keys (.. js/window -cells -eval)))]
-      (clj->js {:list (filter #(.startsWith % word) vars)
+  (fn [_ _]
+    (let [vars (into (static-var-strings) (map demunge (js/Object.keys (.. js/window -cells -eval))))
+          completions (filter #(.startsWith % word) vars)
+          completions (if (= completions (list word)) '() completions)]
+      (clj->js {:list completions
                 :from from :to to}))))
 
 (defn pre-post [n s]
@@ -64,19 +86,26 @@
           (if-let [handler (:on-change options)]
             (.on editor "change" #(handler (.getValue %))))
 
-          (.on editor "keyup"
-               #(if (re-find #"\w" (-> %2 .-which js/String.fromCharCode))
-                 (let [cursor-position (.getCursor editor)
-                       [pre post] (pre-post (.-ch cursor-position) (.getLine editor (.-line cursor-position)))
-                       word (last (re-find #".*?([\w-!?*]+)$" pre))
-                       end-of-word? (or (empty? post) (re-find #"[^\w-!?*]" (first post)))]
+          (.on editor "select" show-doc)
 
-                   (if (and word end-of-word?)
-                     (let [word-start (clj->js {:line (.-line cursor-position)
-                                                :ch (- (.-ch cursor-position) (count word))})]
-                       (.showHint editor
-                                  (clj->js {:completeSingle false
-                                            :hint           (hint word word-start cursor-position)})))))))
+          (.on editor "cursorActivity"
+               #(let [pos (.getCursor editor)
+                      line (.getLine editor (.-line pos))
+                      is-char (re-find #"\w" (nth line (dec (.-ch pos))))
+                      [pre post] (pre-post (.-ch pos) line)
+                      pre-word (last (re-find #".*?([\w-!./><+&$#?*]+)$" pre))
+                      word (str pre-word
+                                (last (re-find #"^([\w\-!\./\>\<+&$#?*]+).*?$" post)))
+                      end-of-word? (or (empty? post) (re-find #"[^\w\-!\./\>\<+&$#?*]" (first post)))]
+                 (show-doc word)
+                 (if (and is-char pre-word end-of-word?)
+                   (let [word-start (clj->js {:line (.-line pos)
+                                              :ch   (- (.-ch pos) (count pre-word))})
+                         options (clj->js {:completeSingle false
+                                           :hint           (hint pre-word word-start pos)})]
+
+                     (.showHint editor options)
+                     ))))
 
           (if-not (empty? (:click-coords options))
             (let [[x y] (:click-coords options)

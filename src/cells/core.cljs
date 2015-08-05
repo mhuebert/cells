@@ -4,6 +4,7 @@
   (:require
     [cells.events]
     [cells.eval]
+    [cells.cell-helpers]
     [cells.compiler :as compiler]
     [cells.state :as state]
     [cells.events :refer [mouse-event!]]
@@ -18,10 +19,13 @@
 (enable-console-print!)
 
 (defonce _
-         (go (<! (compiler/load-caches!))
+         (go (<! (compiler/load-caches! 'cells.eval))
              (doseq [s state/demo-cells]
                (layout/new-view! (<! (cells/new-cell! (merge {:id (cells/alphabet-name)} s)))
-                                      s))))
+                                      s))
+             (<! (compiler/load-caches! 'cells.cell-helpers))
+             ))
+
 
 (defn app []
   (fn []
@@ -31,7 +35,8 @@
       (doall (for [view (:views @state/layout)]
                ^{:key (:id @view)}
                [c/cell view]))
-      [c/new-cell-btn]]]))
+      [c/new-cell-btn]]
+     [c/eldoc @state/current-meta]]))
 
 (r/render-component [app] (.getElementById js/document "app"))
 

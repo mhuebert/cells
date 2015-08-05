@@ -168,3 +168,19 @@
   "On a click event, return click position or empty list."
   (if (.-currentTarget e) [(.-pageX e) (.-pageY e)] []))
 
+(defn eldoc [m]
+  (let [info-level (r/atom 2)
+        toggle {0 2
+                2 1
+                1 0}]
+    (fn [{:keys [name doc arglists]}]
+      [:div {:class-name "meta"
+             :on-click   #(swap! info-level toggle)}
+       (if (= @info-level 0)
+         [:span {:class-name "meta-show"} "show docs"])
+       (if (and (> @info-level 0) (not (empty? arglists)))
+         [:span {:key :meta :class-name "meta-arglists"}
+          [:strong {:key :name :class-name "meta-name"} (str name)]
+          " " (str arglists) " "] )
+       (if (> @info-level 1)
+         [:span {:key :doc :class-name "meta-doc"} (str doc)])])))

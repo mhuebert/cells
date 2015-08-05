@@ -31,7 +31,7 @@
   ([cstate s opts]
    (let [ext (or (:ext opts) :cljs)]
      (go
-       (let [path (str "js/caches/" (clojure.string/replace (name s) "." "/") "." (name ext) ".cache.edn")
+       (let [path (str "js/caches/" (clojure.string/replace (munge (name s)) "." "/") "." (name ext) ".cache.edn")
              cache-edn (<! (GET path))
              cache (read-string cache-edn)]
          (cljs.js/load-analysis-cache! cstate s cache)
@@ -40,9 +40,9 @@
 (defn analyzed? [st s]
   (-> @st :cljs.analyzer/namespaces (get s)))
 
-(defn load-caches! []
+(defn load-caches! [s]
   (go
-    (if-not (analyzed? compiler-state 'cells.eval) (<! (load-cache compiler-state 'cells.eval)))))
+    (if-not (analyzed? compiler-state s) (<! (load-cache compiler-state s)))))
 
 (defn eval
   ([forms] (eval forms {}))

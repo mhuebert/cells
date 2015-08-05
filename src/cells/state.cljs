@@ -20,6 +20,8 @@
 (defonce current-cell (atom nil))
 
 
+(defonce current-meta (r/atom {}))
+
 (def demo-cells [{:id 'b
                   :source "(slurp :text \"https://gist.githubusercontent.com/jackrusher/1b9d3782cedec26f5b51/raw/213738c97ef33969f8ddaa49f2a97d48993e88f2/dylan-thomas.txt\")"}
                  {:id 'masseuse-pony
