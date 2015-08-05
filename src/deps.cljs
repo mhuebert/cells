@@ -10,5 +10,9 @@
   {:file     "js/codemirror/match-brackets.js"
    :provides ["addons.codemirror.match-brackets"]
    :requires ["cljsjs.codemirror"]
+   }
+  {:file     "js/codemirror/show-hint.js"
+   :provides ["addons.codemirror.show-hint"]
+   :requires ["cljsjs.codemirror"]
    }]
  }

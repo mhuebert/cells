@@ -13,23 +13,26 @@
 
 (defn cell [view]
   (let [id (:id @view)
+
         value (get @state/values id)
+
         editor-content (atom @(get @state/sources id))
 
         show-editor #(do (reset! state/current-cell id)
                          (swap! view merge {:editing?     true
                                             :click-coords (click-coords %)}))
-        handle-editor-blur #(do
-                             (reset! (get @state/sources id) @editor-content)
-                             (reset! state/current-cell nil)
-                             (swap! view merge {:editing? false
-                                                   :click-coords []}))
-
-        handle-editor-focus #(reset! state/current-cell id)
 
         view-mode (cond (:editing? @view) :source
                         (some-> @value meta :hiccup) (if (mode :show-all-source) :value :hiccup)
-                        :else :value)]
+                        :else :value)
+
+        handle-editor-blur (fn [editor]
+                             (reset! (get @state/sources id) @editor-content)
+                             (reset! state/current-cell nil)
+                             (swap! view merge {:editing?     false
+                                                :click-coords []}))
+
+        handle-editor-focus #(reset! state/current-cell id)]
 
     [:div {:class-name "cell"
            :style (cell-style @view)}
@@ -41,7 +44,8 @@
 
      [:div {:class-name "cell-content"
             :on-click show-editor
-            :on-focus     handle-editor-focus}
+            :on-blur handle-editor-blur
+            :on-focus handle-editor-focus}
 
       (condp = view-mode
         :value
@@ -49,10 +53,9 @@
                         {:readOnly "nocursor" :matchBrackets false}]
         :source
         ^{:key :source} [cm-editor @(get @sources id)
-                         (assoc @view
-                           :on-change #(reset! editor-content %)
-                           :on-key-handled prn
-                           :on-blur handle-editor-blur)]
+                         (merge @view
+                                {:on-blur   handle-editor-blur
+                                 :on-change #(reset! editor-content %)})]
         :hiccup
         [:div {:class-name "cell-as-html" :key "as-html"} @value])]]))
 

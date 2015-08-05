@@ -4,16 +4,17 @@
             [cljsjs.codemirror.mode.clojure]
             [addons.codemirror.match-brackets]
             [addons.codemirror.overlay]
-            [addons.codemirror.subpar]))
+            [addons.codemirror.subpar]
+            [addons.codemirror.show-hint]))
 
 (def cm-defaults
-  {:theme           "3024-day"
-   :extraKeys       (aget js/window "subparKeymap")
-   :lineNumbers     false
-   :lineWrapping    true
+  {:theme "3024-day"
+   :keyMap (aget js/window "subparKeymap")
+   :lineNumbers false
+   :lineWrapping true
    :styleActiveLine true
-   :matchBrackets   true
-   :mode            "clojure"})
+   :matchBrackets true
+   :mode "clojure"})
 
 (defn focused? [editor]
   (-> editor (aget "state") (aget "focused")))
@@ -29,45 +30,72 @@
 
 (def editor-style {:display "flex" :flex 1})
 
+(defn hint [word from to]
+  (fn []
+    (let [vars (map demunge (js/Object.keys (.. js/window -cells -eval)))]
+      (clj->js {:list (filter #(.startsWith % word) vars)
+                :from from :to to}))))
+
+(defn pre-post [n s]
+  [(subs s 0 n) (subs s n (count s))])
+
 (defn cm-editor
   ([a] (cm-editor a {}))
   ([val options]
    (r/create-class
-     {:component-did-mount       (fn [this]
-                                   (let [config (clj->js (merge cm-defaults options))
-                                         editor (js/CodeMirror (-> this .getDOMNode) config)]
+     {:component-did-mount
+      (fn [this]
+        (let [config (clj->js (merge cm-defaults options))
+              editor (js/CodeMirror (-> this .getDOMNode) config)]
 
-                                     (r/set-state this {:editor editor :id (:id options) :a val})
+          (r/set-state this {:editor editor :id (:id options) :a val})
 
-                                     (.setValue editor (coerce val))
+          (.setValue editor (coerce val))
 
-                                     (if-let [handler (:on-mount options)]
-                                       (handler editor))
+          (if-let [handler (:on-mount options)]
+            (handler editor))
 
-                                     (if-let [handler (:on-blur options)]
-                                       (.on editor "blur" #(handler %)))
+          (if-let [handler (:on-blur options)]
+            (.on editor "blur" #(handler %)))
 
-                                     (if-let [handler (:on-key-handled options)]
-                                       (.on editor "keyHandled" #(handler %)))
+          (if-let [handler (:on-key-handled options)]
+            (.on editor "keyHandled" #(handler %)))
 
-                                     (if-let [handler (:on-change options)]
-                                       (.on editor "change" #(handler (.getValue %))))
+          (if-let [handler (:on-change options)]
+            (.on editor "change" #(handler (.getValue %))))
 
-                                     (if-not (empty? (:click-coords options))
-                                       (let [[x y] (:click-coords options)
-                                             pos (.coordsChar editor (clj->js {:left x :top y}))]
-                                         (.focus editor)
-                                         (.setCursor editor pos)))))
+          (.on editor "keyup"
+               #(if (re-find #"\w" (-> %2 .-which js/String.fromCharCode))
+                 (let [cursor-position (.getCursor editor)
+                       [pre post] (pre-post (.-ch cursor-position) (.getLine editor (.-line cursor-position)))
+                       word (last (re-find #".*?([\w-!?*]+)$" pre))
+                       end-of-word? (or (empty? post) (re-find #"[^\w-!?*]" (first post)))]
 
-      :componentWillReceiveProps (fn [this [_ val]]
-                                   (let [editor (:editor (r/state this))
-                                         val (coerce val)]
-                                     (if (not= val (.getValue editor))
-                                       (set-preserve-cursor editor val))))
+                   (if (and word end-of-word?)
+                     (let [word-start (clj->js {:line (.-line cursor-position)
+                                                :ch (- (.-ch cursor-position) (count word))})]
+                       (.showHint editor
+                                  (clj->js {:completeSingle false
+                                            :hint           (hint word word-start cursor-position)})))))))
 
-      :component-will-unmount    #(.off (:editor (r/state %)))
+          (if-not (empty? (:click-coords options))
+            (let [[x y] (:click-coords options)
+                  pos (.coordsChar editor (clj->js {:left x :top y}))]
+              (.focus editor)
+              (.setCursor editor pos)))))
 
-      :reagent-render            (fn [] [:div {:style editor-style}])})))
+      :componentWillReceiveProps
+      (fn [this [_ val]]
+        (let [editor (:editor (r/state this))
+              val (coerce val)]
+          (if (not= val (.getValue editor))
+            (set-preserve-cursor editor val))))
+
+      :component-will-unmount
+      #(.off (:editor (r/state %)))
+
+      :reagent-render
+      (fn [] [:div {:style editor-style}])})))
 
 (defn cm-editor-static
   ([a] (cm-editor-static a {}))

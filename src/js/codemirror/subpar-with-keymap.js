@@ -245,6 +245,9 @@ w))}}(n,q,p,u,w,b,c,d,e,f,h,k,l,m))}return null});ia("subpar.core.indent_selecti
 (function() {
     //Modifiers in this order: Shift-, Cmd-, Ctrl-, and Alt-
     window.subparKeymap = {
+
+
+        "fallthrough"    : ['macDefault'],
         "Backspace"      : function(cm) {subpar.core.backward_delete(cm)},
         "Delete"         : function(cm) {subpar.core.forward_delete(cm)},
         "Ctrl-D"         : function(cm) {subpar.core.forward_delete(cm)},
@@ -285,7 +288,7 @@ w))}}(n,q,p,u,w,b,c,d,e,f,h,k,l,m))}return null});ia("subpar.core.indent_selecti
         "Alt-Down"       : function(cm) {subpar.core.splice_delete_forward(cm)},
         "Alt-S"          : function(cm) {subpar.core.splice(cm)},
         //todo wrap expression in round, square, curly.
-        "Ctrl-Alt-\\"    : function(cm) {subpar.core.indent_selection(cm)}
+        "Ctrl-Alt-\\"    : function(cm) {subpar.core.indent_selection(cm)},
     };
 
 })();

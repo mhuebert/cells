@@ -11,8 +11,8 @@
 
 (enable-console-print!)
 
-(def compiler-state (cljs/empty-state))
-(def compiler-options {:ns      'cells.eval
+(defonce compiler-state (cljs/empty-state))
+(defonce compiler-options {:ns      'cells.eval
                        :eval    #(do #_(prn %) (cljs/js-eval %))
                        :context :expr
                        :load    (fn [{:keys [name macros path]} cb]
@@ -40,32 +40,29 @@
 (defn analyzed? [st s]
   (-> @st :cljs.analyzer/namespaces (get s)))
 
+(defn load-caches! []
+  (go
+    (if-not (analyzed? compiler-state 'cells.eval) (<! (load-cache compiler-state 'cells.eval)))))
+
 (defn eval
   ([forms] (eval forms {}))
   ([forms opts]
-   (go
-     (if-not (analyzed? compiler-state 'cells.eval) (<! (load-cache compiler-state 'cells.eval)))
-     (let [c (chan)]
-       (try
-         (cljs/eval compiler-state forms (merge compiler-options opts) (compiler-cb c))
-         (catch js/Error e (.log js/console "compile error " e forms)))
-       c))))
+   (let [c (chan)]
+     (cljs/eval compiler-state forms (merge compiler-options opts) (compiler-cb c))
+     c)))
 
 (defn eval-str [source]
   (let [c (chan)]
-    (try
-      (cljs/eval-str compiler-state source nil compiler-options (compiler-cb c))
-      (catch js/Error e (.log js/console "compile error " e source)))
+    (cljs/eval-str compiler-state source nil compiler-options (compiler-cb c))
     c))
 
-#_(defonce _
-         (let [names ['interval 'html 'self 'self-id 'value 'values 'new-cell 'value!]]
-           (eval `(do (declare ~@names)))))
+#_(defn run-cell [id]
+  (eval `(def ~id (@(get cells.state/compiled-fns ~id)))))
 
 (defn def-value [id]
   (eval `(def ~id (~'value '~id))))
 
-(defn compile-as-fn [source]
+(defn source->fn [source]
   (eval-str (str "(fn[] " source " )")))
 
 

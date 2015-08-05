@@ -4,6 +4,7 @@
   (:require
     [cells.events]
     [cells.eval]
+    [cells.compiler :as compiler]
     [cells.state :as state]
     [cells.events :refer [mouse-event!]]
     [cells.keys]
@@ -17,7 +18,8 @@
 (enable-console-print!)
 
 (defonce _
-         (go (doseq [s state/demo-cells]
+         (go (<! (compiler/load-caches!))
+             (doseq [s state/demo-cells]
                (layout/new-view! (<! (cells/new-cell! (merge {:id (cells/alphabet-name)} s)))
                                       s))))
 

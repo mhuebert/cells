@@ -9,7 +9,7 @@
             [cells.cells :as cells :refer [clear-intervals!]]
             [cells.state :as state :refer [sources values self self-id]]))
 
-(def html #(with-meta % {:hiccup true}))
+(defonce html #(with-meta % {:hiccup true}))
 
 (defn value [id]
   @(get @values id))
@@ -21,7 +21,9 @@
   @(get @sources id))
 
 (defn value! [id val]
-  (reset! (get @values id) val)
+  (let [a (get @values id)]
+    (when (not= val @a)
+      (reset! a val)))
   val)
 
 (defn source! [id val]

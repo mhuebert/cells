@@ -2,7 +2,7 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cells.state :as state :refer [layout sources values compiled-fns self self-id]]
             [cljs.core.async :refer [put! chan <! >!]]
-            [cells.compiler :refer [compile-as-fn def-value]]
+            [cells.compiler :refer [source->fn def-value]]
             [cells.refactor.rename :refer [replace-symbol]]
             [cells.refactor.find :refer [find-reactive-symbols]]
             [reagent.core :as r]))
@@ -27,33 +27,32 @@
        (add-watch source-atom :self-watch
                   (fn [_ _ _ new]
                     (go
-                      (let [f (<! (compile-as-fn new))]
-                        (when (not= (.toString f) (.toString @compiled-fn-atom))
-                          (reset! compiled-fn-atom f))))))
+                      (reset! compiled-fn-atom (<! (source->fn new))))))
 
        (add-watch compiled-fn-atom :self-watch
-                  (fn [_ _ _ fn]
-                    (go
-                      (update-subs! id)
-                      (clear-intervals! id)
-                      (binding [self @value-atom
-                                self-id id]
-                        (reset! value-atom (fn))))))
+                  (fn [_ _ old-f f]
+                    (go (when (not= (.toString old-f) (.toString f))
+                          (update-subs! id)
+                          (clear-intervals! id)
+                          (binding [self @value-atom
+                                    self-id id]
+                            (reset! value-atom (f)))))))
 
        (add-watch value-atom :self-watch
-                  (fn [_ _ old new]
+                  (fn [_ _ old-val val]
                     (go
-                      (when (not= old new)
+                      (when (not= old-val val)
                         (<! (def-value id))
                         (doseq [s (get @state/dependents id)]
                           (clear-intervals! s)
                           (binding [self @(get @values s)
                                     self-id s]
-                            (reset! (get @values s) (try (@(get @compiled-fns s))
-                                                         (catch js/Error e [:div {:class-name "cell-error"} (str e)])))))))))
+                            (reset! (get @values s) (@(get @compiled-fns s)))))))))
 
        (reset! source-atom (:source data))                  ;this will start the reactions
        id))))
+
+
 
 (defn- update-values [m f & args]
   (reduce (fn [r [k v]] (assoc r k (apply f v args))) {} m))
@@ -75,11 +74,10 @@
   (clear-intervals! id)
   (clear-dependents! id)
   (swap! state/dependents dissoc id)
-  (swap! values dissoc id)                            ;cell value-cache
-  (swap! compiled-fns dissoc id)
-  (swap! sources dissoc id))
-
-
+  (doseq [a [values compiled-fns sources]]
+    (remove-watch (get @a id) :self-watch)
+    (swap! a dissoc id))
+  (js/goog.object.remove (-> js/window .-cells .-eval) (munge (name id))))
 
 (defn rename-symbol! [old-symbol new-symbol]
   (go
