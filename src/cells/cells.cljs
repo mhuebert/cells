@@ -1,19 +1,17 @@
 (ns cells.cells
   (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [cells.state :as state :refer [layout sources values compiled-fns]]
+  (:require [cells.state :as state :refer [layout sources values compiled-fns self self-id]]
             [cljs.core.async :refer [put! chan <! >!]]
-            [cells.compiler :refer [def-in-cljs-user declare-in-cljs-user compile-as-fn def-value-in-cljs-user]]
+            [cells.compiler :refer [compile-as-fn def-value]]
             [cells.refactor.rename :refer [replace-symbol]]
             [cells.refactor.find :refer [find-reactive-symbols]]
-            [reagent.core :as r]
-            ))
+            [reagent.core :as r]))
 
-(declare alphabet-name number-name little-pony-names new-name make-id update-subs! clear-intervals!)
+(declare little-pony-names new-name make-id update-subs! clear-intervals!)
 
 (defn new-cell!
-  ([] (new-cell! (new-name) nil))
-  ([data] (new-cell! (new-name) data))
-  ([id data]
+  ([] (new-cell! {}))
+  ([data]
    (go
      (let [id (if-let [id (:id data)] (make-id id) (new-name))
            source-atom (r/atom nil)
@@ -24,7 +22,7 @@
        (swap! compiled-fns assoc id compiled-fn-atom)
        (swap! values assoc id value-atom)
 
-       (<! (def-value-in-cljs-user id))
+       (<! (def-value id))
 
        (add-watch source-atom :self-watch
                   (fn [_ _ _ new]
@@ -38,26 +36,24 @@
                     (go
                       (update-subs! id)
                       (clear-intervals! id)
-                      (binding [cljs.user/self @value-atom
-                                cljs.user/self-id id]
+                      (binding [self @value-atom
+                                self-id id]
                         (reset! value-atom (fn))))))
 
        (add-watch value-atom :self-watch
                   (fn [_ _ old new]
                     (go
                       (when (not= old new)
-                        (<! (def-value-in-cljs-user id))
+                        (<! (def-value id))
                         (doseq [s (get @state/dependents id)]
                           (clear-intervals! s)
-                          (binding [cljs.user/self @(get @values s)
-                                    cljs.user/self-id s]
+                          (binding [self @(get @values s)
+                                    self-id s]
                             (reset! (get @values s) (try (@(get @compiled-fns s))
                                                          (catch js/Error e [:div {:class-name "cell-error"} (str e)])))))))))
 
        (reset! source-atom (:source data))                  ;this will start the reactions
        id))))
-
-
 
 (defn- update-values [m f & args]
   (reduce (fn [r [k v]] (assoc r k (apply f v args))) {} m))
@@ -83,18 +79,7 @@
   (swap! compiled-fns dissoc id)
   (swap! sources dissoc id))
 
-(defn interval
-  ([f] (interval f 500))
-  ([n f]
-   (let [id cljs.user/self-id
-         value (get @values id)
-         exec #(binding [cljs.user/self @(get @values id)
-                         cljs.user/self-id id]
-                (reset! value (f cljs.user/self)))]
-     (clear-intervals! id)
-     (let [interval-id (js/setInterval exec (max 24 n))]
-       (swap! state/interval-ids update id #(conj (or % []) interval-id)))
-     (f @value))))
+
 
 (defn rename-symbol! [old-symbol new-symbol]
   (go

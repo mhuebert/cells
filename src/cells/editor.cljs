@@ -6,7 +6,6 @@
             [addons.codemirror.overlay]
             [addons.codemirror.subpar]))
 
-
 (def cm-defaults
   {:theme           "3024-day"
    :extraKeys       (aget js/window "subparKeymap")
@@ -34,23 +33,31 @@
   ([a] (cm-editor a {}))
   ([val options]
    (r/create-class
-     {:component-did-mount       #(let [config (clj->js (merge cm-defaults options))
-                                        editor (js/CodeMirror (-> % .getDOMNode) config)
-                                        change-handler (:on-change options)]
+     {:component-did-mount       (fn [this]
+                                   (let [config (clj->js (merge cm-defaults options))
+                                         editor (js/CodeMirror (-> this .getDOMNode) config)]
 
-                                   (r/set-state % {:editor editor :id (:id options) :a val})
+                                     (r/set-state this {:editor editor :id (:id options) :a val})
 
-                                   (.setValue editor (coerce val))
+                                     (.setValue editor (coerce val))
 
-                                   (.on editor "change" (fn [_]
-                                                          (if change-handler
-                                                            (change-handler (.getValue editor)))))
+                                     (if-let [handler (:on-mount options)]
+                                       (handler editor))
 
-                                   (if-not (empty? (:click-coords options))
-                                     (let [[x y] (:click-coords options)
-                                           pos (.coordsChar editor (clj->js {:left x :top y}))]
-                                       (.focus editor)
-                                       (.setCursor editor pos))))
+                                     (if-let [handler (:on-blur options)]
+                                       (.on editor "blur" #(handler %)))
+
+                                     (if-let [handler (:on-key-handled options)]
+                                       (.on editor "keyHandled" #(handler %)))
+
+                                     (if-let [handler (:on-change options)]
+                                       (.on editor "change" #(handler (.getValue %))))
+
+                                     (if-not (empty? (:click-coords options))
+                                       (let [[x y] (:click-coords options)
+                                             pos (.coordsChar editor (clj->js {:left x :top y}))]
+                                         (.focus editor)
+                                         (.setCursor editor pos)))))
 
       :componentWillReceiveProps (fn [this [_ val]]
                                    (let [editor (:editor (r/state this))
@@ -76,7 +83,7 @@
                                    (if (:on-click options)
                                      (.on editor "mousedown" (:on-click options)))
                                    (r/set-state % {:editor editor :a a})
-                                   (.setValue editor (coerce a) #_(coerce @a)))
+                                   (.setValue editor (coerce a)))
       :componentWillReceiveProps (fn [this [_ val]]
                                    (.setValue (:editor (r/state this)) (coerce val)))
       :reagent-render            (fn []

@@ -3,7 +3,7 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require
     [cells.events]
-    [cljs.user]
+    [cells.eval]
     [cells.state :as state]
     [cells.events :refer [mouse-event!]]
     [cells.keys]
@@ -18,7 +18,7 @@
 
 (defonce _
          (go (doseq [s state/demo-cells]
-               (layout/add-cell-view! (<! (cells/new-cell! (merge {:id (cells/alphabet-name)} s)))
+               (layout/new-view! (<! (cells/new-cell! (merge {:id (cells/alphabet-name)} s)))
                                       s))))
 
 (defn app []

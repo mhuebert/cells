@@ -23,7 +23,8 @@
     (swap! actions assoc label func)))
 
 #_(register "ctrl+enter" #(when-let [id @state/current-cell]
-                     (compile-cell! id)))
+                     (prn id)
+                     #_(compile-cell! id)))
 
 (defonce _
          (goog.events/listen handler goog.ui.KeyboardShortcutHandler.EventType.SHORTCUT_TRIGGERED key-event))

@@ -1,9 +1,10 @@
 @require "normalize.styl"
 @require "codemirror.css"
 @require "codemirror-3024-day.css"
-
+@require "markdown.css"
 $pink = #FF00C3
 $blue = #00A4FF
+
 
 html, body
   min-height: 100%
@@ -11,10 +12,12 @@ html, body
   display: flex
   flex-direction: column
   flex: 1
+.markdown
+  font-family "Helvetica Neue", helvetica, arial, sans-serif
 .cells
   display flex
   flex-wrap wrap
-  font-family monospace
+  font-family monospace 
   margin 15px
 
 .cell
@@ -32,6 +35,7 @@ html, body
   display flex
   flex 1
   box-sizing border-box
+  overflow-y auto
 
 .cell-id
   border none

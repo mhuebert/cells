@@ -2,27 +2,29 @@
   (:require-macros [cljs.core.async.macros :refer [alt! go go-loop]])
   (:require [reagent.core :as r]
             [cells.state :as state :refer [layout sources values]]
-            [cells.layout :refer [add-cell-view!]]
+            [cells.layout :refer [new-view! mode mode!]]
             [cljs.core.async :refer [put! chan <! buffer mult tap pub sub unsub close!]]
             [cells.events :refer [listen window-mouse-events]]
             [cells.cells :refer [new-cell! rename-symbol!]]
             [cells.editor :refer [cm-editor cm-editor-static]]))
 
 (declare cell-id cell-resize cell-style click-coords)
-(defn mode [k] (get-in @layout [:modes k]))
-(defn mode! [k v]
-  (swap! layout assoc-in [:modes k] v))
+
+
 (defn cell [view]
   (let [id (:id @view)
         value (get @state/values id)
         editor-content (atom @(get @state/sources id))
+
         show-editor #(do (reset! state/current-cell id)
                          (swap! view merge {:editing?     true
                                             :click-coords (click-coords %)}))
-        handle-editor-blur #(do (reset! state/current-cell nil)
-                                (swap! view merge {:editing? false
-                                                   :click-coords []})
-                                (reset! (get @state/sources id) @editor-content))
+        handle-editor-blur #(do
+                             (reset! (get @state/sources id) @editor-content)
+                             (reset! state/current-cell nil)
+                             (swap! view merge {:editing? false
+                                                   :click-coords []}))
+
         handle-editor-focus #(reset! state/current-cell id)
 
         view-mode (cond (:editing? @view) :source
@@ -39,15 +41,18 @@
 
      [:div {:class-name "cell-content"
             :on-click show-editor
-            :on-focus     handle-editor-focus
-            :on-blur      handle-editor-blur}
+            :on-focus     handle-editor-focus}
+
       (condp = view-mode
         :value
         ^{:key :value} [cm-editor-static (if (mode :show-all-source) @(get @sources id) @value)
                         {:readOnly "nocursor" :matchBrackets false}]
         :source
         ^{:key :source} [cm-editor @(get @sources id)
-                         (assoc @view :on-change #(reset! editor-content %))]
+                         (assoc @view
+                           :on-change #(reset! editor-content %)
+                           :on-key-handled prn
+                           :on-blur handle-editor-blur)]
         :hiccup
         [:div {:class-name "cell-as-html" :key "as-html"} @value])]]))
 
@@ -63,8 +68,6 @@
            [:strong {:style {:color "#333" :font-size 15}} operator]]
           [(interpose "," (map #(do [:span {:style {:color "rgb(0, 164, 255)"}} " " %]) args))
            [[:div {:style {:color "#7d7d7d" :font-size 14 :font-weight 300}} description]]]))
-
-(defn stop [e] (.preventDefault e) (.stopPropagation e))
 
 (defn cell-style [{:keys [width height]}]
   (let [{:keys [x-unit y-unit gap]} (:settings @layout)]
@@ -115,8 +118,9 @@
 (defn docs []
   [:div {:style {:font-family "monospace" :margin 30}}
    [c-doc "value!" ["'id" "value"] "set cell value"]
-   #_[c-doc "source!" ["id" "string"] "set cell source"]
+   [c-doc "source!" ["id" "string"] "set cell source"]
    [c-doc "interval" ["n" "fn"] "call fn every n ms"]
+   [c-doc "md" ["source"] "render markdown"]
    [c-doc [:span {:style {:font-style "italic"}} "self"] [] "current cell value"]
    #_[c-doc [:span {:style {:text-transform "uppercase" :font-size 14}} "ctrl-enter"] [] "run current cell"]])
 
@@ -149,7 +153,7 @@
                                     :value        @n}])})))
 
 (defn new-cell-btn [styles]
-  [:a {:on-click   #(go (add-cell-view! (<! (new-cell!)) {:editing? true
+  [:a {:on-click   #(go (new-view! (<! (new-cell!)) {:editing? true
                                                           :autofocus true}))
        :class-name "touch-btn cell"
        :key        "new-cell"

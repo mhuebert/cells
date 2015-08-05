@@ -1,23 +1,29 @@
 (ns cells.state
   (:require [reagent.core :as r]))
 
-;persisted values
+(def ^:dynamic self nil)
+(def ^:dynamic self-id nil)
+
+;user values
 (defonce sources (atom {}))
-(defonce values (atom {}))
 (defonce layout (r/atom {:settings {:x-unit 224
                                     :y-unit 126
                                     :gap    30}
                          :modes {:show-all-source false}
                          :views    (sorted-set-by #(:order @%))}))
 
-;temporary and disposable values
+;derived values
+(defonce values (atom {}))
 (defonce compiled-fns (r/atom {}))
 (defonce dependents (r/atom {}))
 (defonce interval-ids (r/atom {}))
 (defonce current-cell (atom nil))
 
 
-(def demo-cells [{:source "(interval 500 #(rand))"}
+(def demo-cells [{:source "(interval 1000 #(value! self-id (inc self)))"}
+                 {:source "(slurp md \"https://gist.githubusercontent.com/mhuebert/18a1ef480d1bb0b0a270/raw/6809a7d496631fe94bc8954d3af77dc33deb5a65/cljs-js-analysis-cache-usage.md\")"
+                  :width 3
+                  :height 3}] #_[{:source "(interval 500 #(rand))"}
                  {:source "(update self (int (* 10 a)) inc)"}
                  {:id 'histogram
                   :source "(html \n (into [:svg]\n   (let [ks (keys b)\n         mx (apply max (vals b))]\n     (for [[k offset]\n     \t(map vector ks \n             (range 0 100 (/ 100 (count ks))))]\n\t\t\t[:line \n            {:x1 (str offset \"%\")\n             :x2 (str offset \"%\")\n             :y1 (str (- 100 (int (* 100 (/ (get b k) mx)))) \"%\")\n             :y2 \"100%\"\n             :stroke \"blue\"\n             :stroke-width \"20\"\n             :fill \"blue\"}]))))"}
