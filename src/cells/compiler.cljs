@@ -13,10 +13,11 @@
 
 (defonce compiler-state (cljs/empty-state))
 (defonce compiler-options {:ns      'cells.eval
-                       :eval    #(do #_(prn %) (cljs/js-eval %))
-                       :context :expr
-                       :load    (fn [{:keys [name macros path]} cb]
-                                  (cb nil))})
+                           :eval    cljs/js-eval
+                           :context :expr
+                           :warnings false
+                           :load    (fn [{:keys [name macros path]} cb]
+                                      (cb nil))})
 
 (defn compiler-cb [c]
   (fn [{:keys [value error]}]
@@ -55,12 +56,6 @@
   (let [c (chan)]
     (cljs/eval-str compiler-state source nil compiler-options (compiler-cb c))
     c))
-
-#_(defn run-cell [id]
-  (eval `(def ~id (@(get cells.state/compiled-fns ~id)))))
-
-(defn def-value [id]
-  (eval `(def ~id (~'value '~id))))
 
 (defn source->fn [source]
   (eval-str (str "(fn[] " source " )")))

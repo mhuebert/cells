@@ -44,7 +44,7 @@
 
      [:div {:class-name "cell-content"
             :on-click show-editor
-            :on-blur handle-editor-blur
+
             :on-focus handle-editor-focus}
 
       (condp = view-mode
@@ -54,7 +54,7 @@
         :source
         ^{:key :source} [cm-editor @(get @sources id)
                          (merge @view
-                                {:on-blur   handle-editor-blur
+                                {:on-blur handle-editor-blur
                                  :on-change #(reset! editor-content %)})]
         :hiccup
         [:div {:class-name "cell-as-html" :key "as-html"} @value])]]))

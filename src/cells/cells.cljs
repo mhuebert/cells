@@ -2,9 +2,10 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cells.state :as state :refer [layout sources values compiled-fns self self-id]]
             [cljs.core.async :refer [put! chan <! >!]]
-            [cells.compiler :refer [source->fn def-value]]
+            [cells.compiler :refer [source->fn]]
             [cells.refactor.rename :refer [replace-symbol]]
             [cells.refactor.find :refer [find-reactive-symbols]]
+            [cells.refactor.core :refer [cell-transform]]
             [reagent.core :as r]))
 
 (declare little-pony-names new-name make-id update-subs! clear-intervals!)
@@ -22,12 +23,13 @@
        (swap! compiled-fns assoc id compiled-fn-atom)
        (swap! values assoc id value-atom)
 
-       (<! (def-value id))
-
        (add-watch source-atom :self-watch
                   (fn [_ _ _ new]
                     (go
-                      (reset! compiled-fn-atom (<! (source->fn new))))))
+                      (binding [self @value-atom
+                                self-id id]
+                        (let [source (cell-transform new)]
+                          (reset! compiled-fn-atom (<! (source->fn source))))))))
 
        (add-watch compiled-fn-atom :self-watch
                   (fn [_ _ old-f f]
@@ -42,7 +44,6 @@
                   (fn [_ _ old-val val]
                     (go
                       (when (not= old-val val)
-                        (<! (def-value id))
                         (doseq [s (get @state/dependents id)]
                           (clear-intervals! s)
                           (binding [self @(get @values s)

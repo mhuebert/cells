@@ -34,14 +34,15 @@
 
 (def editor-style {:display "flex" :flex 1})
 
+
+
 (def static-vars
   (memoize (fn []                                           ;clojure is not happy if we try ns-interns too soon, hence this is a fn
              (clojure.set/union (set (keys (ns-interns 'cljs.core)))
-                                (set (keys (ns-interns 'cells.cell-helpers)))))))
+                                (set (map (comp symbol demunge) (js/Object.keys (.. js/window -cells -cell_helpers))))))))
 
 (def static-var-strings
-  (memoize (fn []
-             (map name (static-vars)))))
+  (memoize (fn [] (map name (static-vars)))))
 
 (defn show-doc [word]
   (go
@@ -52,7 +53,7 @@
 
 (defn hint [word from to]
   (fn [_ _]
-    (let [vars (into (static-var-strings) (map demunge (js/Object.keys (.. js/window -cells -eval))))
+    (let [vars (into (static-var-strings) (map name (keys @state/values)))
           completions (filter #(.startsWith % word) vars)
           completions (if (= completions (list word)) '() completions)]
       (clj->js {:list completions
@@ -78,7 +79,9 @@
             (handler editor))
 
           (if-let [handler (:on-blur options)]
-            (.on editor "blur" #(handler %)))
+            (.on editor "blur" #(do
+                                 (show-doc "")
+                                 (handler %))))
 
           (if-let [handler (:on-key-handled options)]
             (.on editor "keyHandled" #(handler %)))

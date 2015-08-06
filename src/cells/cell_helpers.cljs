@@ -13,8 +13,7 @@
 
 (defn value
   "Returns the value of a cell."
-  [id]
-  @(get @values id))
+  [id] (if-let [a (get @values id)] @a nil))
 
 (defn md
   "Parses markdown and returns html."
