@@ -3,4 +3,6 @@
                                         slurp interval html md]]
             [cells.cells :as cells]
             [goog.net.XhrIo :as xhr]
+            [cljs.tools.reader :as reader]
             [cells.state :as state :refer [self self-id]]))
+

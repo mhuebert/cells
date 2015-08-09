@@ -1,35 +1,67 @@
 (ns cells.state
-  (:require [reagent.core :as r]))
+  (:require [reagent.core :as r]
+            [cognitect.transit :as t])
+  (:import goog.History))
 
 (def ^:dynamic self nil)
 (def ^:dynamic self-id nil)
 
+(def blank-layout {:settings {:x-unit 224
+                              :y-unit 126
+                              :gap    30}
+                   :modes {:show-all-source false}
+                   :views    (sorted-set-by #(:order @%))})
+
+(def blank-state {:sources {}
+                  :layout blank-layout
+                  :values {}
+                  :compiled-fns {}
+                  :dependents {}
+                  :interval-ids {}
+                  :current-cell nil
+                  :current-meta {}})
+
 ;user values
-(defonce sources (atom {}))
-(defonce layout (r/atom {:settings {:x-unit 224
-                                    :y-unit 126
-                                    :gap    30}
-                         :modes {:show-all-source false}
-                         :views    (sorted-set-by #(:order @%))}))
+(defonce sources (atom (:sources blank-state)))
+(defonce layout (r/atom (:layout blank-state)))
 
-;derived values
-(defonce values (atom {}))
-(defonce compiled-fns (r/atom {}))
-(defonce dependents (r/atom {}))
-(defonce interval-ids (r/atom {}))
-(defonce current-cell (atom nil))
+;derived balues
+(defonce values (atom (:values blank-state)))
+(defonce compiled-fns (atom (:compiled-fns blank-state)))
+(defonce dependents (atom (:dependents blank-state)))
+(defonce interval-ids (atom (:interval-ids blank-state)))
+(defonce current-cell (atom (:current-cell blank-state)))
+(defonce current-meta (r/atom (:current-meta blank-state)))
 
+(defn reset-state!
+  ([] (reset-state! blank-state))
+  ([state]
+   (let [state (merge blank-state state)]
+     (reset! layout (:layout state))
+     (reset! sources (:sources state))
+     (reset! values (:values state))
+     (reset! compiled-fns (:compiled-fns state))
+     (reset! dependents (:dependents state))
+     (reset! interval-ids (:interval-ids state))
+     (reset! current-cell (:current-cell state))
+     (reset! current-meta (:current-meta blank-state)))))
 
-(defonce current-meta (r/atom {}))
+(defn serialize-state []
+  (js/encodeURIComponent (js/JSON.stringify (clj->js {:cells (for [[id v] @sources]
+                                                               {:id id :source @v})
+                                                      :views (map deref (:views @layout))}))))
+
+(defn deserialize-state [data]
+  (let [{:keys [cells views]} (-> data js/JSON.parse (js->clj :keywordize-keys true))]
+    {:cells (map #(update % :id symbol) cells)
+     :views (map #(update % :id symbol) views)}))
+
+(defonce history (History.))
 
 (def demo-cells [{:id 'b
-                  :source "(slurp :text \"https://gist.githubusercontent.com/jackrusher/1b9d3782cedec26f5b51/raw/213738c97ef33969f8ddaa49f2a97d48993e88f2/dylan-thomas.txt\")"}
+                  :source "(slurp :text \"https://raw.githubusercontent.com/clojure/clojurescript/master/src/main/cljs/cljs/core.cljs\")"
+                  }
                  {:id 'masseuse-pony
-                  :source "(reduce #(update-in %1 %2 inc) self (partition 2 1 (remove (partial = \"\") (js->clj (.split (.toLowerCase  b) (re-pattern \"[^a-z]\"))))))"}
-                 {:id 'rose
-                  :source "(interval 3000 (fn [] (md(let [choose #(loop [kvs %1 n (* (rand) (reduce + (vals %1)))]\n                  (let [[k v] (first kvs) n (- n v)]\n                    (if (or (<= n 0)) k (recur (rest kvs) n))))]\n    (loop [n 12 curr (rand-nth (keys masseuse-pony)) out \"\"]\n      (if (<= n 0) out\n          (let [out (str out \" \" curr)]\n            (recur (dec n) (choose (masseuse-pony curr)) out))))))))"}
-                 ])
-
-
-
-
+                  :source "(sort-by (comp - last) (vec (reduce #(update %1 (symbol %2) inc) {} (.split (.toLowerCase b) (re-pattern \"[^a-z]+\")))))"}
+                 {:id 'cljs-core-symbols
+                  :source "(set (map (comp symbol demunge)(js/Object.keys (goog.object.getValueByKeys js/window \"cljs\" \"core\"))))"}])

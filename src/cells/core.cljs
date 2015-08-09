@@ -5,6 +5,7 @@
     [cells.events]
     [cells.eval]
     [cells.cell-helpers]
+    [cells.routes]
     [cells.compiler :as compiler]
     [cells.state :as state]
     [cells.events :refer [mouse-event!]]
@@ -18,18 +19,29 @@
 
 (enable-console-print!)
 
-(defonce _
-         (go (<! (compiler/load-caches! 'cells.eval))
-             (doseq [s state/demo-cells]
-               (layout/new-view! (<! (cells/new-cell! (merge {:id (cells/alphabet-name)} s)))
-                                      s))
-             (<! (compiler/load-caches! 'cells.cell-helpers))
-             ))
+(defn load-demo-cells! []
+  (go (doseq [s state/demo-cells]
+        (let [id (<! (cells/new-cell! (merge {:id (cells/alphabet-name)} s)))
+              view (dissoc s :source)]
+          (layout/new-view! (merge {:id id} view))))))
+
+(defonce _ (do
+             (go (<! (compiler/load-caches! 'cells.eval))
+                 (cells.routes/init))
+             (compiler/load-caches! 'cells.cell-helpers)))
+
 
 
 (defn app []
   (fn []
     [:div
+     [:a {:on-click #(state/reset-state!)} "Clear!"]
+     [:a {:on-click #(do
+                      (let [s (state/serialize-state)]
+                        (.setToken state/history (str "/quick-sketch/" s))))} "serialize"]
+     [:a {:on-click #(do (state/reset-state! state/blank-state)
+                         (load-demo-cells!)
+                         )} "Load-Defaults!"]
      [c/docs]
      [:div {:key "cells" :class-name "cells"}
       (doall (for [view (:views @state/layout)]

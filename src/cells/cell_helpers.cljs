@@ -13,7 +13,9 @@
 
 (defn value
   "Returns the value of a cell."
-  [id] (if-let [a (get @values id)] @a nil))
+  [id]
+  (if-let [a (get @values id)]
+    @a nil))
 
 (defn md
   "Parses markdown and returns html."
@@ -82,5 +84,5 @@
   ([opts]
    (let [id (or (:id opts) (cells/new-name))
          opts (assoc opts :id id)]
-     (go (layout/new-view! (<! (cells/new-cell! opts))))
+     (go (layout/new-view! {:id (<! (cells/new-cell! opts))}))
      id)))

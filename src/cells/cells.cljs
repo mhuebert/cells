@@ -18,7 +18,6 @@
            source-atom (r/atom nil)
            compiled-fn-atom (r/atom (js* "function(){}"))
            value-atom (r/atom (:initial-val data))]
-
        (swap! sources assoc id source-atom)
        (swap! compiled-fns assoc id compiled-fn-atom)
        (swap! values assoc id value-atom)
@@ -78,6 +77,7 @@
   (doseq [a [values compiled-fns sources]]
     (remove-watch (get @a id) :self-watch)
     (swap! a dissoc id))
+  #_(swap! layout remove #(= id (:id @%)))
   (js/goog.object.remove (-> js/window .-cells .-eval) (munge (name id))))
 
 (defn rename-symbol! [old-symbol new-symbol]

@@ -3,16 +3,10 @@
             [reagent.core :as r]))
 
 (defn new-view!
-  ([id] (new-view! id {}))
-  ([id opts]
+  ([opts]
    (swap! layout update :views conj
           (r/atom
-            (merge
-              {:id     id
-               :width  1
-               :height 1
-               :order  (inc (count (:views @layout)))}
-              opts)))))
+            (assoc opts :order (inc (count (:views @layout))))))))
 
 (defn mode [k] (get-in @layout [:modes k]))
 

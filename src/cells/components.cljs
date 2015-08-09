@@ -11,6 +11,8 @@
 (declare cell-id cell-resize cell-style click-coords)
 
 
+(def cell-view-defaults {:width 1 :height 1})
+
 (defn cell [view]
   (let [id (:id @view)
 
@@ -26,7 +28,9 @@
                         (some-> @value meta :hiccup) (if (mode :show-all-source) :value :hiccup)
                         :else :value)
 
-        handle-editor-blur (fn [editor]
+        handle-editor-change #(reset! editor-content %)
+
+        handle-editor-blur (fn [_]
                              (reset! (get @state/sources id) @editor-content)
                              (reset! state/current-cell nil)
                              (swap! view merge {:editing?     false
@@ -55,7 +59,7 @@
         ^{:key :source} [cm-editor @(get @sources id)
                          (merge @view
                                 {:on-blur handle-editor-blur
-                                 :on-change #(reset! editor-content %)})]
+                                 :on-change handle-editor-change})]
         :hiccup
         [:div {:class-name "cell-as-html" :key "as-html"} @value])]]))
 
@@ -72,8 +76,9 @@
           [(interpose "," (map #(do [:span {:style {:color "rgb(0, 164, 255)"}} " " %]) args))
            [[:div {:style {:color "#7d7d7d" :font-size 14 :font-weight 300}} description]]]))
 
-(defn cell-style [{:keys [width height]}]
-  (let [{:keys [x-unit y-unit gap]} (:settings @layout)]
+(defn cell-style [view]
+  (let [{:keys [width height]} (merge cell-view-defaults view)
+        {:keys [x-unit y-unit gap]} (:settings @layout)]
     {:width  (-> width (* x-unit) (+ (* gap (dec width))))
      :height (-> height (* y-unit) (+ (* gap (dec height))) (+ 20))}))
 
@@ -156,11 +161,11 @@
                                     :value        @n}])})))
 
 (defn new-cell-btn [styles]
-  [:a {:on-click   #(go (new-view! (<! (new-cell!)) {:editing? true
-                                                          :autofocus true}))
+  [:a {:on-click   #(go (new-view! {:id (<! (new-cell!))} {:editing?  true
+                                                           :autofocus true}))
        :class-name "touch-btn cell"
        :key        "new-cell"
-       :style      (cell-style {:width 1 :height 1})}
+       :style      (cell-style cell-view-defaults)}
    [:div {:class-name "cell-meta" :key "meta"}]
    [:div {:class-name "cell-value" :key "value"} "+"]])
 

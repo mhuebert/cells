@@ -12,13 +12,14 @@
             [cells.state :as state]))
 
 (def cm-defaults
-  {:theme "3024-day"
-   :keyMap (aget js/window "subparKeymap")
-   :lineNumbers false
-   :lineWrapping true
+  {:theme           "3024-day"
+   :keyMap          (aget js/window "subparKeymap")
+   :lineNumbers     false
+   :lineWrapping    true
    :styleActiveLine true
-   :matchBrackets true
-   :mode "clojure"})
+   :matchBrackets   true
+   ;   :mode "clojure"
+   })
 
 (defn focused? [editor]
   (-> editor (aget "state") (aget "focused")))
@@ -87,7 +88,8 @@
             (.on editor "keyHandled" #(handler %)))
 
           (if-let [handler (:on-change options)]
-            (.on editor "change" #(handler (.getValue %))))
+            (.on editor "change" #(do
+                                   (handler (.getValue %1)))))
 
           (.on editor "select" show-doc)
 
@@ -115,13 +117,6 @@
                   pos (.coordsChar editor (clj->js {:left x :top y}))]
               (.focus editor)
               (.setCursor editor pos)))))
-
-      :componentWillReceiveProps
-      (fn [this [_ val]]
-        (let [editor (:editor (r/state this))
-              val (coerce val)]
-          (if (not= val (.getValue editor))
-            (set-preserve-cursor editor val))))
 
       :component-will-unmount
       #(.off (:editor (r/state %)))
