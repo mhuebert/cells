@@ -124,7 +124,7 @@
               :on-mouse-down mouse-down-handler}]])))
 
 (defn docs []
-  [:div {:style {:font-family "monospace" :margin 30}}
+  [:div {:style {:font-family "monospace" :margin "10px 30px 30px"}}
    [c-doc "value!" ["'id" "value"] "set cell value"]
    [c-doc "source!" ["id" "string"] "set cell source"]
    [c-doc "interval" ["n" "fn"] "call fn every n ms"]
@@ -161,8 +161,9 @@
                                     :value        @n}])})))
 
 (defn new-cell-btn [styles]
-  [:a {:on-click   #(go (new-view! {:id (<! (new-cell!))} {:editing?  true
-                                                           :autofocus true}))
+  [:a {:on-click   #(go (new-view! {:id (<! (new-cell!))
+                                    :editing?  true
+                                    :autofocus true}))
        :class-name "touch-btn cell"
        :key        "new-cell"
        :style      (cell-style cell-view-defaults)}

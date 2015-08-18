@@ -19,7 +19,7 @@ html, body
   display flex
   flex-wrap wrap
   font-family monospace 
-  margin 15px
+  margin 0 15px 15px
 
 .cell
   margin 15px 15px 0 15px
@@ -31,7 +31,20 @@ html, body
   
   // overflow hidden
 
-
+.command-bar
+  margin 10px 30px 0
+  font-size 12px
+  a
+    margin-right 5px
+    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif
+    padding 5px 8px
+    color #777
+    display inline-block
+    cursor pointer
+    background #f9f9f9
+    &:hover
+      background $blue
+      color white !important
 .cell-content
   display flex
   flex 1

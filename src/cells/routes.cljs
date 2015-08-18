@@ -7,8 +7,7 @@
             [goog.history.EventType :as EventType]
             [secretary.core :as secretary :refer-macros [defroute]]
             [cells.layout :as layout]
-            [cells.cells :as cells])
-  )
+            [cells.cells :as cells]))
 
 
 
@@ -18,7 +17,7 @@
         (layout/new-view! (<! (cells/new-cell! (merge {:id (cells/alphabet-name)} s)))
                           (dissoc s :source)))))
 
-(defroute "/quick-sketch/:data" [data]
+(defroute "/quick/:data" [data]
           (go
             (let [{:keys [cells views]} (state/deserialize-state data)]
               (state/reset-state!)

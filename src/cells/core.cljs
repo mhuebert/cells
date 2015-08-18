@@ -35,14 +35,15 @@
 (defn app []
   (fn []
     [:div
-     [:a {:on-click #(state/reset-state!)} "Clear!"]
-     [:a {:on-click #(do
-                      (let [s (state/serialize-state)]
-                        (.setToken state/history (str "/quick-sketch/" s))))} "serialize"]
-     [:a {:on-click #(do (state/reset-state! state/blank-state)
-                         (load-demo-cells!)
-                         )} "Load-Defaults!"]
-     [c/docs]
+     [:div {:class-name "command-bar"}
+      [:a {:on-click #(state/reset-state!)} "clear"]
+      [:a {:on-click #(do
+                       (let [s (state/serialize-state)]
+                         (.setToken state/history (str "/quick/" s))))} "share"]
+      [:a {:on-click #(do (state/reset-state! state/blank-state)
+                          (load-demo-cells!)
+                          )} "demo"]]
+     #_[c/docs]
      [:div {:key "cells" :class-name "cells"}
       (doall (for [view (:views @state/layout)]
                ^{:key (:id @view)}
