@@ -100,6 +100,17 @@
 		"outputStyle": 1,
 		"syntaxCheckerStyle": 0
 		},
+	"\/src\/js\/lzString.js": {
+		"fileType": 64,
+		"ignore": 0,
+		"ignoreWasSetByUser": 0,
+		"inputAbbreviatedPath": "\/src\/js\/lzString.js",
+		"outputAbbreviatedPath": "\/src\/js\/min\/lzString-min.js",
+		"outputPathIsOutsideProject": 0,
+		"outputPathIsSetByUser": 0,
+		"outputStyle": 1,
+		"syntaxCheckerStyle": 1
+		},
 	"\/src\/styles\/cells.styl": {
 		"createSourceMap": 1,
 		"debugStyle": 0,

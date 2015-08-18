@@ -1,6 +1,7 @@
 (ns cells.state
   (:require [reagent.core :as r]
-            [cognitect.transit :as t])
+            [cognitect.transit :as t]
+            [lz-string])
   (:import goog.History))
 
 (def ^:dynamic self nil)
@@ -47,12 +48,13 @@
      (reset! current-meta (:current-meta blank-state)))))
 
 (defn serialize-state []
-  (js/encodeURIComponent (js/JSON.stringify (clj->js {:cells (for [[id v] @sources]
-                                                               {:id id :source @v})
-                                                      :views (map deref (:views @layout))}))))
+  (let [data (js/JSON.stringify (clj->js {:cells (for [[id v] @sources]
+                                                   {:id id :source @v})
+                                          :views (map deref (:views @layout))}))]
+    (js/LZString.compressToEncodedURIComponent data)))
 
 (defn deserialize-state [data]
-  (let [{:keys [cells views]} (-> data js/JSON.parse (js->clj :keywordize-keys true))]
+  (let [{:keys [cells views]} (-> data js/LZString.decompressFromEncodedURIComponent js/JSON.parse (js->clj :keywordize-keys true))]
     {:cells (map #(update % :id symbol) cells)
      :views (map #(update % :id symbol) views)}))
 

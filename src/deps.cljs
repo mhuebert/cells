@@ -14,5 +14,8 @@
   {:file     "js/codemirror/show-hint.js"
    :provides ["addons.codemirror.show-hint"]
    :requires ["cljsjs.codemirror"]
+   }
+  {:file "js/lzString.js"
+   :provides ["lz-string"]
    }]
  }
