@@ -14,7 +14,9 @@
     [cells.layout :as layout]
     [cells.cells :as cells]
     [reagent.core :as r]
-    [goog.events])
+    [goog.events]
+    [cljsjs.d3]
+    [cljsjs.topojson])
   (:import goog.events.EventType))
 
 (enable-console-print!)
@@ -40,7 +42,7 @@
       [:a {:on-click #(do
                        (let [s (state/serialize-state)]
                          (.setToken state/history (str "/quick/" s))))} "share"]
-      [:a {:on-click #(do (state/reset-state! state/blank-state)
+      #_[:a {:on-click #(do (state/reset-state! state/blank-state)
                           (load-demo-cells!)
                           )} "demo"]]
      #_[c/docs]

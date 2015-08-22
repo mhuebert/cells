@@ -40,7 +40,8 @@
   ([content-type path]
    (let [f (condp = content-type
              :text '#(-> % .-target .getResponseText)
-             :json '#(-> % .-target .getResponseJson (js->clj :keywordize-keys true)))]
+             :json '#(-> % .-target .getResponseJson)
+             :json->clj '#(-> % .-target .getResponseJson (js->clj :keywordize-keys true)))]
      [path f])))
 
 (defn invert-slurp [loc]

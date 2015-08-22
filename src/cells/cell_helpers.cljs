@@ -9,7 +9,10 @@
             [cells.cells :as cells :refer [clear-intervals!]]
             [cells.state :as state :refer [sources values self self-id]]))
 
-(defonce html #(with-meta % {:hiccup true}))
+(defn ->html
+  "Convert hiccup into html"
+  [source]
+  (with-meta source {:hiccup true}))
 
 (defn value
   "Returns the value of a cell."
@@ -20,7 +23,24 @@
 (defn md
   "Parses markdown and returns html."
   [source]
-  (html [:span {:class "markdown-body" :dangerouslySetInnerHTML {:__html (js/marked source)}} ]))
+  (->html [:span {:class "markdown-body" :dangerouslySetInnerHTML {:__html (js/marked source)}} ]))
+
+(defn html
+  "Inserts a string as html into the cell."
+  [source]
+  (let [source (or (.-innerHTML source)                     ;a DOM element
+                   (some-> source (aget 0) .-parentNode .-outerHTML)
+                   (some-> source (aget 0 0) .-outerHTML)   ;a nested DOM element, like from D3
+                   source)]
+    (->html [:span {:dangerouslySetInnerHTML {:__html source}}])))
+
+(defn d3-svg
+  "Create a DOM Node, and return an appended d3 svg node"
+  []
+  (-> js/d3
+      (.select (js/document.createElement "svg"))
+      (.attr "width" 150)
+      (.attr "height" 150)))
 
 (defn source
   "Returns the source of a cell."
@@ -74,7 +94,8 @@
          parse-fn (comp (:fn opts)
                         (condp = (:as opts)
                           :text #(.getResponseText %)
-                          :json #(-> % .getResponseJson (js->clj :keywordize-keys true))))]
+                          :json->clj #(-> % .getResponseJson (js->clj :keywordize-keys true))
+                          :json #(-> % .getResponseJson)))]
      (xhr/send path #(value! id (-> % .-target parse-fn)))
      nil)))
 

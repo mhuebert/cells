@@ -13,6 +13,8 @@
                  [cljsjs/codemirror "5.1.0-2"]
                  [cljs-http "0.1.36"]
                  [com.cognitect/transit-cljs "0.8.220"]
+                 [cljsjs/d3 "3.5.5-3"]
+                 [cljsjs/topojson "1.6.18-0"]
                  [com.cognitect/transit-clj "0.8.275"]]
 
   :plugins [[lein-cljsbuild "1.0.5"]
